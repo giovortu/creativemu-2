@@ -1,0 +1,63 @@
+# Project: CvEmu2
+# Makefile created by Dev-C++ 4.9.9.2
+
+CPP  = g++.exe -D__DEBUG__
+CC   = gcc.exe -D__DEBUG__
+WINDRES = windres.exe
+RES  = CreatiVemu_private.res
+OBJ  = video/tms9918.o mem/cvmemory.o cpu/cpu6502.o pia/6821pia.o video/drv9918.o main.o audio/sn76496.o font/font.o savestate/savestate.o menu/menu.o keyboard/keyboard.o $(RES)
+LINKOBJ  = video/tms9918.o mem/cvmemory.o cpu/cpu6502.o pia/6821pia.o video/drv9918.o main.o audio/sn76496.o font/font.o savestate/savestate.o menu/menu.o keyboard/keyboard.o $(RES)
+LIBS =  -L"C:/Programmi/Dev-Cpp/lib" -mwindows -lmingw32 -lSDLmain -lSDL -liberty -mwindows -g3 
+INCS =  -I"C:/Programmi/Dev-Cpp/include" 
+CXXINCS =  -I"C:/Programmi/Dev-Cpp/lib/gcc/mingw32/3.4.2/include"  -I"C:/Programmi/Dev-Cpp/include/c++/3.4.2/backward"  -I"C:/Programmi/Dev-Cpp/include/c++/3.4.2/mingw32"  -I"C:/Programmi/Dev-Cpp/include/c++/3.4.2"  -I"C:/Programmi/Dev-Cpp/include" 
+BIN  = CvEmu2.exe
+CXXFLAGS = $(CXXINCS)   -w -fexpensive-optimizations -O3 -g3
+CFLAGS = $(INCS) -I"C:\Programmi\Dev-Cpp\\include\SDL" -Dmain=SDL_main  -w -fexpensive-optimizations -O3 -g3
+RM = rm -f
+
+.PHONY: all all-before all-after clean clean-custom
+
+all: all-before CvEmu2.exe all-after
+
+
+clean: clean-custom
+	${RM} $(OBJ) $(BIN)
+
+$(BIN): $(OBJ)
+	$(CPP) $(LINKOBJ) -o "CvEmu2.exe" $(LIBS)
+
+video/tms9918.o: video/tms9918.c
+	$(CPP) -c video/tms9918.c -o video/tms9918.o $(CXXFLAGS)
+
+mem/cvmemory.o: mem/cvmemory.c
+	$(CPP) -c mem/cvmemory.c -o mem/cvmemory.o $(CXXFLAGS)
+
+cpu/cpu6502.o: cpu/cpu6502.c
+	$(CPP) -c cpu/cpu6502.c -o cpu/cpu6502.o $(CXXFLAGS)
+
+pia/6821pia.o: pia/6821pia.c
+	$(CPP) -c pia/6821pia.c -o pia/6821pia.o $(CXXFLAGS)
+
+video/drv9918.o: video/drv9918.c
+	$(CPP) -c video/drv9918.c -o video/drv9918.o $(CXXFLAGS)
+
+main.o: main.cpp
+	$(CPP) -c main.cpp -o main.o $(CXXFLAGS)
+
+audio/sn76496.o: audio/sn76496.c
+	$(CPP) -c audio/sn76496.c -o audio/sn76496.o $(CXXFLAGS)
+
+font/font.o: font/font.cpp
+	$(CPP) -c font/font.cpp -o font/font.o $(CXXFLAGS)
+
+savestate/savestate.o: savestate/savestate.c
+	$(CPP) -c savestate/savestate.c -o savestate/savestate.o $(CXXFLAGS)
+
+menu/menu.o: menu/menu.c
+	$(CPP) -c menu/menu.c -o menu/menu.o $(CXXFLAGS)
+
+keyboard/keyboard.o: keyboard/keyboard.c
+	$(CPP) -c keyboard/keyboard.c -o keyboard/keyboard.o $(CXXFLAGS)
+
+CreatiVemu_private.res: CreatiVemu_private.rc 
+	$(WINDRES) -i CreatiVemu_private.rc --input-format=rc -o CreatiVemu_private.res -O coff 
