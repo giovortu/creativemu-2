@@ -39,7 +39,26 @@
 #include "pia/6821pia.h"
 #include "audio/sn76496.h"
 #include "menu/menu.h"
+#include "savestate/savestate.h"
 #include "keyboard/keyboard.h"
+
+// ==========================================
+// --- TUNING PARAMETERS ---
+// ==========================================
+
+// Tunes the overall speed/tempo of the game.
+// 1.0 = normal (50Hz PAL speed)
+// 1.2 = 20% faster (simulates NTSC 60Hz timing)
+// 0.8 = 20% slower
+const double EMU_TEMPO_MULTIPLIER = 1.0;
+
+// Tunes the physical pitch/frequency of the audio notes.
+// 1.0 = normal (2MHz chip clock)
+// 1.1 = 10% higher pitch
+// 0.9 = 10% lower pitch
+const double EMU_PITCH_MULTIPLIER = 1.0;
+
+// ==========================================
 
 #include "main.h"
 
@@ -414,11 +433,11 @@ void InitHardware(void)
 
   //************************************
   // Inizializzo l'emulazione del suono
-  //************************************
+  // Inizializzo l'emulazione del chip audio
   //Reset76489(&SoundChip,0);
   //Sync76489(&SoundChip,SN76489_SYNC);
 
-  sn76496Init(0, 3579545, 150, SAMPLE_RATE);
+  sn76496Init(0, (int)(2000000 * EMU_PITCH_MULTIPLIER), 150, SAMPLE_RATE);
 
   //******************************************
   // Inizializzo l'emulazione del chip video
@@ -461,29 +480,26 @@ void RenderScreen(void)
 
 void Syncro( int time )
 {
- unsigned int Diff,TimeCycle;
+  static double total_ms = 0;
+  static Uint32 start_ticks = 0;
   
- Cycle++;
- if (Cycle>=SYNCRO_TIME)
- {
-  Diff=SDL_GetTicks()-Ticks; 
-  TimeCycle=(unsigned int)(CPUTIME*time*SYNCRO_TIME);
-
-  // Print once to verify timing constants
-  static bool once = true;
-  if (once) {
-    fprintf(stderr, "[SYNCRO] TimeCycle=%u Diff=%u CPUTIME=%.6f\n", TimeCycle, Diff, (double)CPUTIME);
-    once = false;
+  if (start_ticks == 0) start_ticks = SDL_GetTicks();
+  
+  // Divide by EMU_TEMPO_MULTIPLIER so that a higher multiplier results in less delay (faster tempo)
+  total_ms += ((time * CPUTIME) / EMU_TEMPO_MULTIPLIER);
+  
+  Cycle++;
+  if (Cycle >= SYNCRO_TIME)
+  {
+      Uint32 now = SDL_GetTicks();
+      Uint32 expected_now = start_ticks + (Uint32)total_ms;
+      
+      if (now < expected_now) {
+          SDL_Delay(expected_now - now);
+      }
+      
+      Cycle = 0;
   }
-  
-  if (Diff<TimeCycle) { SDL_Delay(TimeCycle-Diff); }
-  Ticks=SDL_GetTicks();
-  Cycle=0;
-
-
-  
- }
- 
 }
 
 //*******************************************

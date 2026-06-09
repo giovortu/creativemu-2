@@ -27,6 +27,8 @@
 #ifndef __savestate__
 #define __savestate__
 
+
+
 #define A a_reg
 #define X x_reg
 #define Y y_reg
@@ -34,12 +36,12 @@
 #define S s_reg
 #define PC pc_reg
 
-
+#include "../audio/sn76496.h"
 #include "../cpu/cpu6502.h"
 
 extern tms9918 *Vdp;
 extern BYTE *cvMemory;
-extern struct sn76496 sn[1];
+extern struct sn76496 sn[MAX_76496];
 extern struct pia6821 pia[1];
 extern BYTE *VdpRam;
 extern BYTE a_reg,x_reg,y_reg,flag_reg,s_reg;

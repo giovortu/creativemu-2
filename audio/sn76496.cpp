@@ -45,8 +45,8 @@
 /* bit0 = output */
 
 /* noise feedback for white noise mode */
-#define FB_WNOISE 0x8000       /* bit 15 feedback */
-//#define FB_WNOISE 0x14000     /* bit15.d(16bits) = bit0(out) ^ bit1 */
+//#define FB_WNOISE 0x8000       /* bit 15 feedback */
+#define FB_WNOISE 0x14000     /* bit15.d(16bits) = bit0(out) ^ bit1 */
 //#define FB_WNOISE 0x28000     /* bit16.d(17bits) = bit0(out) ^ bit2 (same to AY-3-8910) */
 //#define FB_WNOISE 0x50000     /* bit17.d(18bits) = bit0(out) ^ bit2 */
 
