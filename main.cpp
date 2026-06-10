@@ -1,26 +1,24 @@
 //****************************************************************************************
-//                                                                                        
-// CvEmu2 versione 0.5 alpha 1
-//                                                                                      
-// Ideato progettato e relizzato da Giovanni Ortu                                        
-//                                                                                       
-// Il programma utilizza le seguenti librerie e porzioni di codice:                                                                               
 //
-// Cpu 6502    : Basato sul codice scritto da Neil Bradley.                              
-// Vdp 9929    : EMULib Emulation Library, Copyright (C) Marat Fayzullin 1996-2002       
-// Pia 6821    : Emulatore ricavato dal MAME                                             
+// CvEmu2 versione 0.5 alpha 1
+//
+// Ideato progettato e relizzato da Giovanni Ortu
+//
+// Il programma utilizza le seguenti librerie e porzioni di codice:
+//
+// Cpu 6502    : Basato sul codice scritto da Neil Bradley.
+// Vdp 9929    : EMULib Emulation Library, Copyright (C) Marat Fayzullin 1996-2002
+// Pia 6821    : Emulatore ricavato dal MAME
 // Audio 76489 : EMULib Emulation Library, Copyright (C) Marat Fayzullin 1996-2002
 //
 //
-//                                                                                       
-// Librerie    : SDL                                                                     
+//
+// Librerie    : SDL
 // Compilatore
-//     Windows : DEV-C++ 4.9.7.0 gcc                                                     
-//       Linux : g++ 2.9.6
+//     Windows : DEV-C++ 4.9.7.0 gcc
+//       Linux : g++
 //
 //****************************************************************************************
-
-
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,23 +64,21 @@ const double EMU_PITCH_MULTIPLIER = 1.0;
 #include <windows.h>
 #endif
 
+//****************
+//*     Main     *
+//****************
 
- //****************
- //*     Main     *
- //****************
- 
 int main(int argc, char *argv[])
 {
-
 
   //******************************
   // Check sui parametri da linea
   // di comando
   //******************************
-  if (!CheckCmdLine(argc,argv))
+  if (!CheckCmdLine(argc, argv))
   {
-   FreeEmu();  
-   exit(0);
+    FreeEmu();
+    exit(0);
   }
 
   //******************************
@@ -98,147 +94,131 @@ int main(int argc, char *argv[])
   InitMenu();
 
   //*********************************
-  // Inizializzo la memoria della Cv 
-  //********************************* 
+  // Inizializzo la memoria della Cv
+  //*********************************
 
   if (!createCvMemory(cvMemory, BiosName, RomName))
   {
-   FreeEmu();
-   exit(0);
-  }  
-
-  //******************************
-  // Se necessario leggo il file
-  // .INI. Se non esiste lo creo
-  //******************************
-  // if (!CmdLine) IniFile();
+    FreeEmu();
+    exit(0);
+  }
 
   //*********************************
   // Inizializzazione Hardware (EMU)
   //*********************************
-  
+
   InitHardware();
-  
+
   //******************************
   // Resetto la Cpu
   //******************************
   reset6502();
-  
+
   //**************************************************
   // Avvio l'audio
   //**************************************************
   SDL_PauseAudio(0);
-  
+
   //******************************
   // Ciclo principale
   //******************************
-  
-
-  
   while (!done)
   {
-  if (Paused) fprintf(stderr, "[PAUSE] Paused set to true!\n");
-  if (!Paused)
-  {
 
-  // --- Timing diagnostics ---
-  static Uint32 dbg_last = 0;
-  Uint32 dbg_now = SDL_GetTicks();
-  if (dbg_last > 0 && dbg_now - dbg_last > 200)
-    fprintf(stderr, "[STALL] %ums gap before Loop9918\n", dbg_now - dbg_last);
-  dbg_last = dbg_now;
-  // --------------------------
+    if (!Paused)
+    {
 
-  VdpIrq = Loop9918(Vdp);
-  if (VdpIrq) irq6502();
+      // --- Timing diagnostics ---
+      static Uint32 dbg_last = 0;
+      Uint32 dbg_now = SDL_GetTicks();
+      if (dbg_last > 0 && dbg_now - dbg_last > 200)
+        fprintf(stderr, "[STALL] %ums gap before Loop9918\n", dbg_now - dbg_last);
+      dbg_last = dbg_now;
+      // --------------------------
 
-  if (Vdp->Line == 0) {
+      VdpIrq = Loop9918(Vdp);
+      if (VdpIrq)
+        irq6502();
 
-    // --- VBlank FPS counter ---
-    static int dbg_frames = 0;
-    static Uint32 dbg_fps_timer = 0;
-    dbg_frames++;
-    if (dbg_now - dbg_fps_timer >= 2000) {
-      fprintf(stderr, "[FPS] %d VBlanks in %.1f sec (%.1f fps)\n",
-              dbg_frames, (dbg_now - dbg_fps_timer) / 1000.0,
-              dbg_frames * 1000.0 / (dbg_now - dbg_fps_timer + 1));
-      dbg_frames = 0;
-      dbg_fps_timer = dbg_now;
-    }
-    // --------------------------
+      if (Vdp->Line == 0)
+      {
 
-    Uint32 t0 = SDL_GetTicks();
-    RenderScreen();
-    Uint32 t1 = SDL_GetTicks();
-    if (t1 - t0 > 50)
-      fprintf(stderr, "[STALL] RenderScreen took %ums\n", t1 - t0);
+#ifdef CHECK_FPS
+        // --- VBlank FPS counter ---
+        static int dbg_frames = 0;
+        static Uint32 dbg_fps_timer = 0;
+        dbg_frames++;
+        if (dbg_now - dbg_fps_timer >= 2000)
+        {
+          fprintf(stderr, "[FPS] %d VBlanks in %.1f sec (%.1f fps)\n",
+                  dbg_frames, (dbg_now - dbg_fps_timer) / 1000.0,
+                  dbg_frames * 1000.0 / (dbg_now - dbg_fps_timer + 1));
+          dbg_frames = 0;
+          dbg_fps_timer = dbg_now;
+        }
+        // --------------------------
+#endif
 
-    // --- Audio generation (50Hz) ---
-    if (audio_enabled) {
-      static Uint32 last_audio_time = 0;
-      Uint32 now = SDL_GetTicks();
-      if (last_audio_time == 0) last_audio_time = now;
-      while (now - last_audio_time >= 20) { // 20ms = 50Hz
-          int samples_to_write = SAMPLE_RATE / 50;
-          
-          //SDL_LockAudio();
-          
-          if (audio_write_pos + samples_to_write > AUDIO_BUFFER_SIZE) {
-            int first_part = AUDIO_BUFFER_SIZE - audio_write_pos;
-            sn76496Update(0, &audio_buffer[audio_write_pos], first_part);
-            sn76496Update(0, &audio_buffer[0], samples_to_write - first_part);
-          } else {
-            sn76496Update(0, &audio_buffer[audio_write_pos], samples_to_write);
+        RenderScreen();
+
+        // --- Audio generation (50Hz) ---
+        if (audio_enabled)
+        {
+          static Uint32 last_audio_time = 0;
+          Uint32 now = SDL_GetTicks();
+          if (last_audio_time == 0)
+            last_audio_time = now;
+          while (now - last_audio_time >= 20)
+          { // 20ms = 50Hz
+            int samples_to_write = SAMPLE_RATE / 50;
+
+            SDL_LockAudio();
+            if (audio_write_pos + samples_to_write > AUDIO_BUFFER_SIZE)
+            {
+              int first_part = AUDIO_BUFFER_SIZE - audio_write_pos;
+              sn76496Update(0, &audio_buffer[audio_write_pos], first_part);
+              sn76496Update(0, &audio_buffer[0], samples_to_write - first_part);
+            }
+            else
+            {
+              sn76496Update(0, &audio_buffer[audio_write_pos], samples_to_write);
+            }
+            audio_write_pos = (audio_write_pos + samples_to_write) % AUDIO_BUFFER_SIZE;
+
+            SDL_UnlockAudio();
+            last_audio_time += 20;
           }
-          audio_write_pos = (audio_write_pos + samples_to_write) % AUDIO_BUFFER_SIZE;
-          
-          //SDL_UnlockAudio();
-          last_audio_time += 20;
+        }
       }
-    }
-  }
 
-  // --- VBlank FPS counter ---
-  if (Vdp->Line == 0) {
-    // ... (keep FPS counter here) ...
-    RenderScreen();
-    // ...
-  }
+      // --- VBlank FPS counter ---
+      if (Vdp->Line == 0)
+      {
+        RenderScreen();
+      }
 
-  Uint32 te0 = SDL_GetTicks();
-  exec6502(207);
-  Uint32 te1 = SDL_GetTicks();
-  if (te1 - te0 > 50)
-    fprintf(stderr, "[STALL] exec6502 took %ums\n", te1 - te0);
+      exec6502(207);
 
-  Uint32 ts0 = SDL_GetTicks();
-  Syncro(207);
-  Uint32 ts1 = SDL_GetTicks();
-  if (ts1 - ts0 > 50)
-    fprintf(stderr, "[STALL] Syncro took %ums\n", ts1 - ts0);
+      Syncro(207);
 
- } // Fine Pausa
+    } // Fine Pausa
 
-  Uint32 tc0 = SDL_GetTicks();
-  CheckEvents();
-  Uint32 tc1 = SDL_GetTicks();
-  if (tc1 - tc0 > 50)
-    fprintf(stderr, "[STALL] CheckEvents took %ums\n", tc1 - tc0);
+    CheckEvents();
 
- //******************************
- // Fine loop emulazione
- //******************************
- } // !Done
+    //******************************
+    // Fine loop emulazione
+    //******************************
+  } // !Done
 
- //**************************************************
- // Interrompo l'audio
- //**************************************************
+  //**************************************************
+  // Interrompo l'audio
+  //**************************************************
 
- SDL_PauseAudio(1);
+  SDL_PauseAudio(1);
 
- //******************************
- // Distruggo i buffer allocati
- //******************************
+  //******************************
+  // Distruggo i buffer allocati
+  //******************************
   FreeEmu();
 
   //******************************
@@ -264,26 +244,35 @@ void FreeEmu(void)
   // Distruggo le superfici SDL
   //******************************
 
-  if (WindowSurface) SDL_FreeSurface(WindowSurface);
-  if (CvScreen) SDL_FreeSurface(CvScreen);
-  if (Menu)  SDL_FreeSurface(Menu);
+  if (WindowSurface)
+    SDL_FreeSurface(WindowSurface);
+  if (CvScreen)
+    SDL_FreeSurface(CvScreen);
+  if (Menu)
+    SDL_FreeSurface(Menu);
 
   //******************************
   // Elimino il font usato
   //******************************
 
-  if (font) freeFont(font);
+  if (font)
+    freeFont(font);
 
   if (Vdp)
-  { Trash9918(Vdp);  delete Vdp; }
+  {
+    Trash9918(Vdp);
+    delete Vdp;
+  }
 
-  if (VdpRam)   delete VdpRam;
-  if (cvMemory) delete cvMemory;
+  if (VdpRam)
+    delete VdpRam;
+  if (cvMemory)
+    delete cvMemory;
 
   delete Audio_spec;
 
   SDL_Quit();
-  
+
 } // Fine Free Emu
 
 //*******************************************
@@ -292,74 +281,78 @@ void FreeEmu(void)
 // Inizializza le SDL ed il layout del video
 //*******************************************
 
-
 void InitScreen(void)
 {
 
-    //************************************
-    // Initializzo SDL  
-    //************************************
-    if (SDL_Init (SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0)
-    {
-     sprintf (msg, "Couldn't initialize SDL video and timer: %s\n", SDL_GetError ());
-     #ifdef WINDOWS
-     MessageBox (0, msg, "Error", MB_ICONHAND);
-     #else
-     printf("%s",msg);
-     #endif
-     exit (1);
-    }
+  //************************************
+  // Initializzo SDL
+  //************************************
+  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0)
+  {
+    sprintf(msg, "Couldn't initialize SDL video and timer: %s\n", SDL_GetError());
+#ifdef WINDOWS
+    MessageBox(0, msg, "Error", MB_ICONHAND);
+#else
+    printf("%s", msg);
+#endif
+    exit(1);
+  }
 
-    //SDL_WM_SetIcon(SDL_LoadBMP("cvemu2.bmp"), NULL);
-    //***************************************************
-    // Create window
-    //***************************************************
+  // SDL_WM_SetIcon(SDL_LoadBMP("cvemu2.bmp"), NULL);
+  //***************************************************
+  //  Create window
+  //***************************************************
 
-    Screen = SDL_CreateWindow ("CreatiVemu2 for Linux", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, VIDEO_WIDTH, VIDEO_HEIGHT, 0);
+  Screen = SDL_CreateWindow("CreatiVemu2 for Linux", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, VIDEO_WIDTH, VIDEO_HEIGHT, 0);
 
-    if (Screen == NULL)
-    {
-     sprintf (msg, "Couldn't create window: %s\n", SDL_GetError ());
-     #ifdef WINDOWS
-     MessageBox (0, msg, "Error", MB_ICONHAND);
-     #else
-     printf("%s",msg);
-     #endif
-     exit (2);
-    }
+  if (Screen == NULL)
+  {
+    sprintf(msg, "Couldn't create window: %s\n", SDL_GetError());
+#ifdef WINDOWS
+    MessageBox(0, msg, "Error", MB_ICONHAND);
+#else
+    printf("%s", msg);
+#endif
+    exit(2);
+  }
 
-    WindowSurface = SDL_GetWindowSurface(Screen);
+  // Keep the real (hardware) surface separately.
+  // WindowSurface is always a fixed 320x240 virtual surface.
+  RealWindowSurface = SDL_GetWindowSurface(Screen);
+  WindowSurface = SDL_CreateRGBSurface(0, VIDEO_WIDTH, VIDEO_HEIGHT,
+                                       RealWindowSurface->format->BitsPerPixel,
+                                       RealWindowSurface->format->Rmask,
+                                       RealWindowSurface->format->Gmask,
+                                       RealWindowSurface->format->Bmask,
+                                       RealWindowSurface->format->Amask);
 
-   // Setta la caption della finestra
-   #ifdef WINDOWS
-   SDL_SetWindowTitle(Screen, "CreatiVemu2 for Windows");
-   #else
-   SDL_SetWindowTitle(Screen, "CreatiVemu2 for Linux");
-   #endif
+// Setta la caption della finestra
+#ifdef WINDOWS
+  SDL_SetWindowTitle(Screen, "CreatiVemu2 for Windows");
+#else
+  SDL_SetWindowTitle(Screen, "CreatiVemu2 for Linux");
+#endif
 
-   SetupScreen();
-   
+  SetupScreen();
 }
 
 void SetupScreen()
 {
 
-   // Colora di "Blu Creativision" la finestra
-   color = SDL_MapRGB (WindowSurface->format, 0x00,0x00,0x00);
-   SDL_FillRect (WindowSurface, NULL, color);
+  // Colora di "Blu Creativision" la finestra
+  color = SDL_MapRGB(WindowSurface->format, 0x00, 0x00, 0x00);
+  SDL_FillRect(WindowSurface, NULL, color);
 
-    // Mostra il riquadro video della Cv
-   color = SDL_MapRGB (WindowSurface->format, 0x00, 0x00, 0x00);//0x3f);
-   CvRect.w = CV_VIDEO_WIDTH;
-   CvRect.h = CV_VIDEO_HEIGHT;
-   CvRect.x = (VIDEO_WIDTH / 2) - (CvRect.w / 2);
-   CvRect.y = (VIDEO_HEIGHT / 2) - (CvRect.h / 2);
-   SDL_FillRect (WindowSurface, &CvRect, color);
+  // Mostra il riquadro video della Cv
+  color = SDL_MapRGB(WindowSurface->format, 0x00, 0x00, 0x00); // 0x3f);
+  CvRect.w = CV_VIDEO_WIDTH;
+  CvRect.h = CV_VIDEO_HEIGHT;
+  CvRect.x = (VIDEO_WIDTH / 2) - (CvRect.w / 2);
+  CvRect.y = (VIDEO_HEIGHT / 2) - (CvRect.h / 2);
+  SDL_FillRect(WindowSurface, &CvRect, color);
 
-   SDL_UpdateWindowSurface(Screen);
+  SDL_UpdateWindowSurface(Screen);
   // Fine inizializzazione video
-
-
 }
 
 //*******************************************
@@ -372,45 +365,49 @@ void SetupScreen()
 //*******************************************
 void AudioCallback(void *udata, Uint8 *stream, int len)
 {
-    int samples = len / sizeof(int16_t);
-    int16_t *out = reinterpret_cast<int16_t*>(stream);
-    
-    for (int i = 0; i < samples; i++) {
-        if (audio_read_pos == audio_write_pos) {
-            out[i] = 0; // Buffer underrun: play silence
-        } else {
-            out[i] = audio_buffer[audio_read_pos];
-            audio_read_pos = (audio_read_pos + 1) % AUDIO_BUFFER_SIZE;
-        }
+  int samples = len / sizeof(int16_t);
+  int16_t *out = reinterpret_cast<int16_t *>(stream);
+
+  for (int i = 0; i < samples; i++)
+  {
+    if (audio_read_pos == audio_write_pos)
+    {
+      out[i] = 0; // Buffer underrun: play silence
     }
+    else
+    {
+      out[i] = audio_buffer[audio_read_pos];
+      audio_read_pos = (audio_read_pos + 1) % AUDIO_BUFFER_SIZE;
+    }
+  }
 }
 
 // ... (in InitAudio) ...
 
 void InitAudio(void)
 {
- SDL_AudioSpec *desired = new SDL_AudioSpec;
+  SDL_AudioSpec *desired = new SDL_AudioSpec;
 
- desired->freq = SAMPLE_RATE;
- desired->format = AUDIO_S16SYS;
- desired->samples = 1024;
- desired->channels = 1;
- desired->callback = AudioCallback;
- desired->userdata = NULL;
+  desired->freq = SAMPLE_RATE;
+  desired->format = AUDIO_S16SYS;
+  desired->samples = 1024;
+  desired->channels = 1;
+  desired->callback = AudioCallback;
+  desired->userdata = NULL;
 
- SDL_AudioSpec *obtained = new SDL_AudioSpec; // Add obtained spec
+  SDL_AudioSpec *obtained = new SDL_AudioSpec; // Add obtained spec
 
- if (SDL_OpenAudio(desired, obtained) < 0)
-     {
-      // ... (error handling)
-      exit (2);
-     }
-     
+  if (SDL_OpenAudio(desired, obtained) < 0)
+  {
+    // ... (error handling)
+    exit(2);
+  }
+
   // If desired format is not supported, this might be an issue.
   // For now, let's keep it simple and just make sure it opens.
 
-  Audio_spec=desired;
-  
+  Audio_spec = desired;
+
   // Explicitly resume audio
   SDL_PauseAudio(0);
 }
@@ -425,17 +422,16 @@ void InitHardware(void)
   //**********************************
   // Inizializzo l'emulazione del PIA
   //**********************************
-  pia_config(0,PIA_STANDARD_ORDERING,&PiaInterface);
+  pia_config(0, PIA_STANDARD_ORDERING, &PiaInterface);
   pia_reset();
-  pia_set_input_ca1(0,1);
-  pia_set_input_ca2(0,1);
- 
+  pia_set_input_ca1(0, 1);
+  pia_set_input_ca2(0, 1);
 
   //************************************
   // Inizializzo l'emulazione del suono
   // Inizializzo l'emulazione del chip audio
-  //Reset76489(&SoundChip,0);
-  //Sync76489(&SoundChip,SN76489_SYNC);
+  // Reset76489(&SoundChip,0);
+  // Sync76489(&SoundChip,SN76489_SYNC);
 
   sn76496Init(0, (int)(2000000 * EMU_PITCH_MULTIPLIER), 150, SAMPLE_RATE);
 
@@ -443,32 +439,79 @@ void InitHardware(void)
   // Inizializzo l'emulazione del chip video
   // e la palette dei colori
   //******************************************
-  New9918(Vdp,VdpRam,CV_VIDEO_WIDTH,CV_VIDEO_HEIGHT);
+  New9918(Vdp, VdpRam, CV_VIDEO_WIDTH, CV_VIDEO_HEIGHT);
   SetPalette(Vdp);
 
   //******************************
   // Inizializzo la Cpu
   //******************************
   init6502();
-
-
 }
-
 
 //*******************************************
 // RefreshVideo :
 //*******************************************
-// Scrivo il buffer video sullo schermo 
+// Scrivo il buffer video sullo schermo
 // 50 volte al secondo
 //*******************************************
 
 void RenderScreen(void)
 {
-  if (!CvScreen) {
-    CvScreen = SDL_CreateRGBSurfaceFrom((BYTE*) Vdp->XBuf,CV_VIDEO_WIDTH,CV_VIDEO_HEIGHT,8,CV_VIDEO_WIDTH,0,0,0,0);
+  if (!CvScreen)
+  {
+    CvScreen = SDL_CreateRGBSurfaceFrom((BYTE *)Vdp->XBuf, CV_VIDEO_WIDTH, CV_VIDEO_HEIGHT, 8, CV_VIDEO_WIDTH, 0, 0, 0, 0);
   }
   SDL_SetPaletteColors(CvScreen->format->palette, SDL_CvPal, 0, 16);
-  SDL_UpperBlit(CvScreen,NULL,WindowSurface,&CvRect);
+  SDL_UpperBlit(CvScreen, NULL, WindowSurface, &CvRect);
+  PresentScreen();
+}
+
+//*******************************************
+// PresentScreen :
+//*******************************************
+// Scales the virtual 320x240 WindowSurface onto RealWindowSurface
+// with 4:3 aspect-ratio letterboxing, then flushes to the window.
+//*******************************************
+void PresentScreen(void)
+{
+  if (!WindowSurface || !RealWindowSurface)
+    return;
+
+  if (RealWindowSurface->w == WindowSurface->w &&
+      RealWindowSurface->h == WindowSurface->h)
+  {
+    // Windowed, same size: simple blit, no scaling needed.
+    SDL_BlitSurface(WindowSurface, NULL, RealWindowSurface, NULL);
+  }
+  else
+  {
+    // Fullscreen or resized: scale with 4:3 aspect ratio.
+    SDL_Rect dest;
+    int rw = RealWindowSurface->w;
+    int rh = RealWindowSurface->h;
+
+    if (rw * 3 > rh * 4)
+    {
+      // Screen wider than 4:3 -> pillarbox (black left/right bars)
+      dest.h = rh;
+      dest.w = rh * 4 / 3;
+      dest.x = (rw - dest.w) / 2;
+      dest.y = 0;
+    }
+    else
+    {
+      // Screen taller than 4:3 -> letterbox (black top/bottom bars)
+      dest.w = rw;
+      dest.h = rw * 3 / 4;
+      dest.x = 0;
+      dest.y = (rh - dest.h) / 2;
+    }
+
+    SDL_FillRect(RealWindowSurface, NULL,
+                 SDL_MapRGB(RealWindowSurface->format, 0, 0, 0));
+    SDL_BlitScaled(WindowSurface, NULL, RealWindowSurface, &dest);
+  }
+
   SDL_UpdateWindowSurface(Screen);
 }
 
@@ -478,27 +521,34 @@ void RenderScreen(void)
 // Sincronizzazione dell'eulatore
 //*******************************************
 
-void Syncro( int time )
+void Syncro(int time)
 {
   static double total_ms = 0;
   static Uint32 start_ticks = 0;
-  
-  if (start_ticks == 0) start_ticks = SDL_GetTicks();
-  
+
+  if (start_ticks == 0)
+    start_ticks = SDL_GetTicks();
+
   // Divide by EMU_TEMPO_MULTIPLIER so that a higher multiplier results in less delay (faster tempo)
   total_ms += ((time * CPUTIME) / EMU_TEMPO_MULTIPLIER);
-  
+
   Cycle++;
   if (Cycle >= SYNCRO_TIME)
   {
-      Uint32 now = SDL_GetTicks();
-      Uint32 expected_now = start_ticks + (Uint32)total_ms;
-      
-      if (now < expected_now) {
-          SDL_Delay(expected_now - now);
+    Uint32 now = SDL_GetTicks();
+    Uint32 expected_now = start_ticks + (Uint32)total_ms;
+
+    if (now < expected_now)
+    {
+      Uint32 tc0 = SDL_GetTicks();
+      while (SDL_GetTicks() - tc0 < expected_now - now)
+      {
+        SDL_Delay(1);  // Sleep in small increments to be more responsive
+        CheckEvents(); // Check for events during delay to prevent unresponsiveness
       }
-      
-      Cycle = 0;
+    }
+
+    Cycle = 0;
   }
 }
 
@@ -509,42 +559,41 @@ void Syncro( int time )
 //*******************************************
 // Versione 2: accetta sulla linea di comando il bios
 
-int CheckCmdLine(int argc,char **argv)
+int CheckCmdLine(int argc, char **argv)
 {
- //****************************************
- // Se ho switch sulla linea di comando...
- //****************************************
- 
- if (argc > 1)
- {
-  if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)
+  //****************************************
+  // Se ho switch sulla linea di comando...
+  //****************************************
+
+  if (argc > 1)
   {
-   printf("\nCreatiVemu2 v0.5-beta - CreatiVision / Dick Smith Wizard emulator\n\n");
-   printf("Usage:\n");
-   printf("  %s romname [biosname]\n\n", argv[0]);
-   printf("Arguments:\n");
-   printf("  romname            Path to the ROM cartridge file\n");
-   printf("  biosname           Path to the BIOS file (default: bios/Biosdsw.rom)\n\n");
-   printf("Keys:\n");
-   printf("  TAB                Open/close in-emulator menu\n");
-   printf("  F2                 Pause / unpause\n");
-   printf("  F3                 Toggle fullscreen / windowed\n");
-   printf("  F5                 Reset (NMI)\n");
-   printf("  ESC                Quit\n\n");
-   return 0;
+    if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)
+    {
+      printf("\nCreatiVemu2 v0.5-beta - CreatiVision / Dick Smith Wizard emulator\n\n");
+      printf("Usage:\n");
+      printf("  %s romname [biosname]\n\n", argv[0]);
+      printf("Arguments:\n");
+      printf("  romname            Path to the ROM cartridge file\n");
+      printf("  biosname           Path to the BIOS file (default: bios/Biosdsw.rom)\n\n");
+      printf("Keys:\n");
+      printf("  TAB                Open/close in-emulator menu\n");
+      printf("  F2                 Pause / unpause\n");
+      printf("  F3                 Toggle fullscreen / windowed\n");
+      printf("  F5                 Reset (NMI)\n");
+      printf("  ESC                Quit\n\n");
+      return 0;
+    }
+
+    strcpy(RomName, argv[1]);
+    if (argc > 2)
+      strcpy(BiosName, argv[2]);
+    return 1;
   }
 
-  strcpy(RomName,argv[1]);
-  if (argc>2)
-   strcpy(BiosName,argv[2]);
-  return 1;
- }
- 
- printf("\nNo argument passed on command line!\n\n") ;
- printf("Usage:\n%s romname [ biosname ]\n\n",(argv[0]));
- 
- return 0;
+  printf("\nNo argument passed on command line!\n\n");
+  printf("Usage:\n%s romname [ biosname ]\n\n", (argv[0]));
 
+  return 0;
 }
 
 //*******************************************
@@ -552,14 +601,15 @@ int CheckCmdLine(int argc,char **argv)
 //*******************************************
 // Attende la pressione di un tasto
 //*******************************************
-   
+
 void WaitKey(void)
 {
-   while(1)
-   {
-     SDL_PollEvent(&event);
-     if (event.type==SDL_KEYDOWN) break;
-   }
+  while (1)
+  {
+    SDL_PollEvent(&event);
+    if (event.type == SDL_KEYDOWN)
+      break;
+  }
 }
 
 //*******************************************
@@ -568,130 +618,93 @@ void WaitKey(void)
 // Cambia Fullscreen / windowed
 //*******************************************
 
-
 void SwapFullScreen()
 {
   fullscreen = (fullscreen ? false : true);
 
-  SDL_SetWindowFullscreen(Screen, fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
+  // SDL_WINDOW_FULLSCREEN_DESKTOP keeps the desktop resolution
+  // and lets the OS scale; far more compatible than SDL_WINDOW_FULLSCREEN.
+  SDL_SetWindowFullscreen(Screen, fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
 
-  if (fullscreen) SDL_ShowCursor(SDL_DISABLE);
-  else SDL_ShowCursor(SDL_ENABLE);
+  // The window surface is invalidated after a mode change — must re-acquire.
+  RealWindowSurface = SDL_GetWindowSurface(Screen);
 
-  if (sMenu) ShowMenu();
-  else if (Paused) PauseCv();
-  else RenderScreen();
+  if (fullscreen)
+    SDL_ShowCursor(SDL_DISABLE);
+  else
+    SDL_ShowCursor(SDL_ENABLE);
+
+  if (sMenu)
+    ShowMenu();
+  else if (Paused)
+    PauseCv();
+  else
+    RenderScreen();
 }
 
-
-void CheckEvents( void )
+void CheckEvents(void)
 {
- int KeySymbol;
+  int KeySymbol;
 
- if (SDL_PollEvent(&event))
- {
-  KeySymbol=event.key.keysym.sym;
-
-  switch (event.type)
+  // Use while (not if) to drain the entire event queue each frame.
+  // This prevents stalls when SDL floods the queue (e.g., on fullscreen toggle).
+  while (SDL_PollEvent(&event))
   {
-   // Uscita dall'applicazione
-   case SDL_QUIT:
-    done = true;
-    break;
-   // Tasto premuto
-   case SDL_KEYDOWN:
-     {
-      switch ( KeySymbol )
-      {
+    KeySymbol = event.key.keysym.sym;
 
-	  // tasti che devono essere sempre attivi.
-       case SDLK_ESCAPE:
+    switch (event.type)
+    {
+    case SDL_QUIT:
+      done = true;
+      break;
+
+    case SDL_KEYDOWN:
+      switch (KeySymbol)
+      {
+      case SDLK_ESCAPE:
         done = true;
         break;
 
-       case SDLK_TAB: // Apre il menu interno
-          sMenu=!sMenu; ShowMenu();
-          break;
+      case SDLK_TAB:
+        sMenu = !sMenu;
+        ShowMenu();
+        break;
 
-       case SDLK_F3: // Toggle fullscreen
-         SwapFullScreen();  break;
+      case SDLK_F3:
+        SwapFullScreen();
+        break;
 
+      case SDLK_F2:
+        Paused = !Paused;
+        PauseCv();
+        break;
 
-	   case SDLK_F2: // Pausa
-          Paused=!Paused; PauseCv();
-          break;
+      case SDLK_F5:
+        nmi6502();
+        break;
 
-	    case SDLK_F5: // Pulsante di reset della Cv
-         nmi6502(); break;
+      default:
+        CheckCvKeysDown(KeySymbol);
+        break;
+      }
+      break;
 
-		default: CheckCvKeysDown( KeySymbol ); break;
+    case SDL_KEYUP:
+      CheckCvKeysUp(KeySymbol);
+      break;
 
-     }
-     break;
+    case SDL_WINDOWEVENT:
+      // On any window-size event (e.g., after fullscreen toggle), re-acquire
+      // the real window surface so subsequent renders are not stale.
+      if (event.window.event == SDL_WINDOWEVENT_RESIZED ||
+          event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
+      {
+        RealWindowSurface = SDL_GetWindowSurface(Screen);
+      }
+      break;
 
-
-  case SDL_KEYUP:
-        {
-         CheckCvKeysUp( KeySymbol );   break;
-        }
-
-
-   default:  break;
-    
-   }
-   
- } // Pool eventi
-
- }// if
- 
-
-}
-
-
-
-/*
-void SetVideoSize(int Width, int Height, char* Caption)
-{
-
-int flags;
-
-
-if (fullscreen)
-	flags = SDL_HWPALETTE | SDL_HWSURFACE | SDL_DOUBLEBUF | SDL_FULLSCREEN;
-else
-	flags = SDL_HWPALETTE | SDL_HWSURFACE | SDL_DOUBLEBUF;
-
-    // Libero la vecchia superficie
-    if (Screen) SDL_FreeSurface(Screen);
-
-    //***************************************************
-    // Set VIDEO_WIDTH x VIDEO_HEIGHT  video mode
-    //***************************************************
-
-    Screen = SDL_SetVideoMode (Width, Height, CV_NUMCOLORS, flags);// | SDL_FULLSCREEN);
-
-    if (Screen == NULL)
-    {
-     sprintf (msg, "Couldn't set video resolution : %s\n",
-     SDL_GetError ());
-
-     #ifdef WINDOWS
-     MessageBox (0, msg, "Error", MB_ICONHAND);
-     #else
-     printf("%s",msg);
-     #endif
-
-     exit (2);
+    default:
+      break;
     }
-
-
-   // Setto la palette
-   SDL_SetColors(Screen, SDL_CvPal, 0, 16);
-
-   // Setta la caption della finestra
-   SDL_WM_SetCaption (Caption, NULL);
+  }
 }
-*/
-
-
-

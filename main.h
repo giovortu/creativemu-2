@@ -90,6 +90,7 @@
   
   SDL_Window *Screen = NULL;
   SDL_Surface *WindowSurface = NULL;
+  SDL_Surface *RealWindowSurface = NULL; // Actual hardware surface (varies in fullscreen)
   SDL_Surface *CvScreen = NULL;
   SDL_Surface *Menu = NULL;
 
@@ -259,7 +260,7 @@
   //*****************************
   void AudioCallback(void *userdata, Uint8 *stream, int len);
 
-
-
-
- 
+  //*****************************
+  // Present scaled frame to window (fullscreen-aware)
+  //*****************************
+  void PresentScreen(void);

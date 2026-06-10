@@ -35,7 +35,8 @@ void DrawMenu( int  );
 void InitMenu( void );
 void Snapshot( void );
 
-
+// Present the scaled virtual surface to the real window.
+extern void PresentScreen(void);
 
 #endif
 
