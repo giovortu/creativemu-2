@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
       while (now - last_audio_time >= 20) { // 20ms = 50Hz
           int samples_to_write = SAMPLE_RATE / 50;
           
-          SDL_LockAudio();
+          //SDL_LockAudio();
           
           if (audio_write_pos + samples_to_write > AUDIO_BUFFER_SIZE) {
             int first_part = AUDIO_BUFFER_SIZE - audio_write_pos;
@@ -192,7 +192,7 @@ int main(int argc, char *argv[])
           }
           audio_write_pos = (audio_write_pos + samples_to_write) % AUDIO_BUFFER_SIZE;
           
-          SDL_UnlockAudio();
+          //SDL_UnlockAudio();
           last_audio_time += 20;
       }
     }

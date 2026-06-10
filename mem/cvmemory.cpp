@@ -80,85 +80,66 @@ int createCvMemory(BYTE *Memory,char *BiosFile, char *RomFile)
  
  switch (RomSize)
  {
-  case 0x1000 : // Rom da 4K
-   for (int i=0x0000; i<=0x0fff; i++)
-   {
-    Memory[0x9000+i]=Rom[i]; 
-    Memory[0xb000+i]=Rom[i];
-    }
+case 0x1000 : // Rom da 4K (Dimensione: 0x1000)
+   memcpy(&Memory[0x9000], &Rom[0x0000], 0x1000); 
+   memcpy(&Memory[0xB000], &Rom[0x0000], 0x1000);
    break;
   
   case 0x1800 : // Rom da 6K
-   for (int i=0x0000; i<=0x07ff; i++) // i primi 2K...
-   {
-    Memory[0x9000+i]=Rom[i]; Memory[0x9800+i]=Rom[i];
-    Memory[0xb000+i]=Rom[i]; Memory[0xb800+i]=Rom[i];
-    }
+   // I primi 2K (Dimensione: 0x0800) copiati e specchiati
+   memcpy(&Memory[0x9000], &Rom[0x0000], 0x0800); 
+   memcpy(&Memory[0x9800], &Rom[0x0000], 0x0800);
+   memcpy(&Memory[0xB000], &Rom[0x0000], 0x0800); 
+   memcpy(&Memory[0xB800], &Rom[0x0000], 0x0800);
 
-   for (int i=0x0800; i<=0x17ff; i++) // .. gli altri 4K
-   {
-    Memory[0x8000+i]=Rom[i]; 
-    Memory[0xa000+i]=Rom[i]; 
-    }
+   // Gli altri 4K (Dimensione: 0x1000, da 0x0800 a 0x17FF)
+   memcpy(&Memory[0x8000 + 0x0800], &Rom[0x0800], 0x1000); 
+   memcpy(&Memory[0xA000 + 0x0800], &Rom[0x0800], 0x1000); 
    break;
  
-  case 0x2000 : // Rom da 8K
-  for (int i=0x0000; i<=0x1fff; i++)
-   {
-    Memory[0x8000+i]=Rom[i]; 
-    Memory[0xa000+i]=Rom[i];
-    }
-  
+  case 0x2000 : // Rom da 8K (Dimensione: 0x2000)
+   memcpy(&Memory[0x8000], &Rom[0x0000], 0x2000); 
+   memcpy(&Memory[0xA000], &Rom[0x0000], 0x2000);
    break;
  
   case 0x2800 : // Rom da 10K
-  for (int i=0x0000; i<=0x1fff; i++)
-   {
-    Memory[0x8000+i]=Rom[i]; 
-    Memory[0xa000+i]=Rom[i];
-    }
-  for (int i=0x2000; i<=0x27ff; i++)
-   {
-    Memory[0x5800+i]=Rom[i]; 
-    Memory[0x7800+i]=Rom[i];
-    }
-  
+   // Primi 8K (Dimensione: 0x2000)
+   memcpy(&Memory[0x8000], &Rom[0x0000], 0x2000); 
+   memcpy(&Memory[0xA000], &Rom[0x0000], 0x2000);
+   
+   // Ultimi 2K (Dimensione: 0x0800, da 0x2000 a 0x27FF)
+   // Nota: nel tuo for originale facevi Memory[0x5800 + i], poiché i parte da 0x2000, 
+   // la scrittura effettiva inizia da 0x5800 + 0x2000 = 0x7800. 
+   // Stessa cosa per l'altro blocco: 0x7800 + 0x2000 = 0x9800.
+   memcpy(&Memory[0x7800], &Rom[0x2000], 0x0800); 
+   memcpy(&Memory[0x9800], &Rom[0x2000], 0x0800);
    break;
    
   case 0x3000 : // Rom da 12K
-  for (int i=0x0000; i<=0x1fff; i++)
-   {
-    Memory[0x8000+i]=Rom[i]; 
-    Memory[0xa000+i]=Rom[i];
-    }
-  for (int i=0x2000; i<=0x2fff; i++)
-   {
-    Memory[0x3000+i]=Rom[i]; 
-    Memory[0x5000+i]=Rom[i];
-    }
+   // Primi 8K (Dimensione: 0x2000)
+   memcpy(&Memory[0x8000], &Rom[0x0000], 0x2000); 
+   memcpy(&Memory[0xA000], &Rom[0x0000], 0x2000);
+   
+   // Ultimi 4K (Dimensione: 0x1000, da 0x2000 a 0x2FFF)
+   // Nota come sopra: 0x3000 + 0x2000 (offset di partenza di i) = 0x5000
+   // E per il secondo blocco: 0x5000 + 0x2000 = 0x7000
+   memcpy(&Memory[0x5000], &Rom[0x2000], 0x1000); 
+   memcpy(&Memory[0x7000], &Rom[0x2000], 0x1000);
    break;
-   /*
+   
   case 0x4800 : // Rom da 18K
-  for (int i=0x0000; i<0x2000; i++)
-  {
-    Memory[0xa000+i]=Rom[i];
-    Memory[0x8000+i]=Rom[i+0x2000];
-  }
-  for (int i=0x0000; i<0x0800; i++)
-  {
-   Memory[0x4800+i]=Rom[0x4000+i]; Memory[0x6800+i]=Rom[0x4000+i];
-   Memory[0x5800+i]=Rom[0x4000+i]; Memory[0x7800+i]=Rom[0x4000+i];
-   }
-   break;
-   */
-  case 0x4800 : // Rom da 18K
-  for (int i=0; i<0x4000; i++) Memory[0x8000+i]=Rom[i];
-  for (int i=0x4000; i<0x4800; i++) Memory[0x4000+(i-0x4000)]=Rom[i];
+   // 1. Copia i 16K principali a 0x8000
+   memcpy(&Memory[0x8000], &Rom[0x0000], 0x4000);
 
-  // Mirror the 2KB bank at 0x4000 throughout the 0x4000-0x7FFF range
-  for (int Bank=0x4800; Bank<0x8000; Bank+=0x0800)
-    memcpy(Memory+Bank, Memory+0x4000, 0x0800);
-  break;
+   // 2. Copia i primi 2K extra a 0x4000
+   memcpy(&Memory[0x4000], &Rom[0x4000], 0x0800);
+
+   // 3. Specchia progressivamente i 2K per riempire i 16K dell'area 0x4000-0x7FFF
+   memcpy(&Memory[0x4800], &Memory[0x4000], 0x0800); // Raddoppia a 4K (fino a 0x4FFF)
+   memcpy(&Memory[0x5000], &Memory[0x4000], 0x1000); // Raddoppia a 8K (fino a 0x5FFF)
+   memcpy(&Memory[0x6000], &Memory[0x4000], 0x2000); // Raddoppia a 16K (fino a 0x7FFF)
+   break;
+
 
   default: printf("Dimensione della ROM %s non riconosciuta.\n",RomFile); return 0; break;
  
