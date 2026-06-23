@@ -26,6 +26,16 @@
 
 #include <time.h>
 #include <stdbool.h>
+#include <errno.h>
+#include <stdio.h>
+#ifdef WINDOWS
+#include <direct.h>
+#define MKDIR(path) _mkdir(path)
+#else
+#include <sys/stat.h>
+#include <sys/types.h>
+#define MKDIR(path) mkdir(path, 0755)
+#endif
 #include "menu.h"
 #include "../savestate/savestate.h"
 
@@ -129,6 +139,7 @@ void ShowMenu(void)
 
     // Metto in pausa l'emulazione
     Paused = true;
+    SDL_PauseAudio(1);
 
     // Inizializzo il menu
     InitMenu();
@@ -203,6 +214,7 @@ void ShowMenu(void)
   {
     // Disattivo la pausa...
     Paused = false;
+    SDL_PauseAudio(0);
   }
 }
 
@@ -252,6 +264,12 @@ void PauseCv(void)
 void Snapshot(void)
 {
   char name[255];
+
+  if (MKDIR("snapshots") != 0 && errno != EEXIST)
+  {
+    printf("Impossibile creare la cartella snapshots\n");
+    return;
+  }
 
   sprintf(name, "snapshots/shot_%d.bmp", time(NULL));
 

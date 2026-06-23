@@ -221,7 +221,7 @@ byte Loop9918(tms9918 *VDP)
     if(CheckSprites(VDP)) VDP->Status|=0x20;
 
   /* Generate VDP interrupt */
-  return(VDP->VKey&&VBlankON(VDP));
+  return(VBlankON(VDP));
 }
 
 /** WrCtrl9918() *********************************************/

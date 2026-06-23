@@ -1,13 +1,10 @@
 # Project: cvemu2
 # Makefile modernizzato e semplificato
 
-VERSION = 3
-PATCHLEVEL = 0
-SUBLEVEL = 0
-EXTRAVERSION = -beta
 
-PROGRAMRELEASE=$(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
 BINDIR = /usr/local/bin
+
+DEFINES+=PROGRAMRELEASE
 
 CPP  = g++
 BIN  = bin/cvemu2
