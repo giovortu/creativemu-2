@@ -12,6 +12,7 @@
 
 
 #include <stdlib.h>
+#include <SDL2/SDL.h>
 
 
 #include "6821pia.h"
@@ -719,8 +720,9 @@ void WrPiaPortA(offs_t A , data8_t Value)
 void WrPiaPortB(offs_t B , data8_t Value)
 {
  // La porta in output invia i dati al chip audio
-
+	SDL_LockAudio();
   sn76496Write(0,Value);
+	SDL_UnlockAudio();
 
 //exit(0);
 

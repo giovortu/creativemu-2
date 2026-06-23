@@ -20,6 +20,9 @@
 //
 //****************************************************************************************
 
+
+#define PROGRAMRELEASE "0.3.0-beta"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,13 +51,16 @@
 // 1.0 = normal (50Hz PAL speed)
 // 1.2 = 20% faster (simulates NTSC 60Hz timing)
 // 0.8 = 20% slower
-const double EMU_TEMPO_MULTIPLIER = 1.0;
+const double EMU_TEMPO_MULTIPLIER = 1.00;
 
 // Tunes the physical pitch/frequency of the audio notes.
-// 1.0 = normal (2MHz chip clock)
+// 1.0 = normal (FunnyMu reference clock: VDP_CLOCK/15 ~= 3.546MHz)
 // 1.1 = 10% higher pitch
 // 0.9 = 10% lower pitch
 const double EMU_PITCH_MULTIPLIER = 1.0;
+const int EMU_PSG_BASE_CLOCK = 3546667;
+const int EMU_HBLANK_CYCLES = 128;
+const int EMU_VBLANK_CYCLES = 40000 - (EMU_HBLANK_CYCLES * 192);
 
 // ==========================================
 
@@ -122,12 +128,14 @@ int main(int argc, char *argv[])
   //******************************
   // Ciclo principale
   //******************************
+  int cycles_this_slice = 256;//EMU_HBLANK_CYCLES;
   while (!done)
   {
 
     if (!Paused)
     {
 
+#ifdef DIAGNOSTICS
       // --- Timing diagnostics ---
       static Uint32 dbg_last = 0;
       Uint32 dbg_now = SDL_GetTicks();
@@ -135,6 +143,11 @@ int main(int argc, char *argv[])
         fprintf(stderr, "[STALL] %ums gap before Loop9918\n", dbg_now - dbg_last);
       dbg_last = dbg_now;
       // --------------------------
+#endif
+
+      exec6502(cycles_this_slice);
+
+      Syncro(cycles_this_slice);
 
       VdpIrq = Loop9918(Vdp);
       if (VdpIrq)
@@ -160,46 +173,36 @@ int main(int argc, char *argv[])
 #endif
 
         RenderScreen();
+      }
 
-        // --- Audio generation (50Hz) ---
-        if (audio_enabled)
+#ifdef AUDIO_TELEMETRY
+      // --- Timing telemetry (disabled by default) ---
+      {
+        static Uint32 tele_start = 0;
+        static Uint32 tele_last = 0;
+        static int tele_vblank = 0;
+        if (tele_start == 0)
+          tele_start = SDL_GetTicks();
+        if (VdpIrq)
+          tele_vblank++;
+        Uint32 tele_now = SDL_GetTicks();
+        if (tele_now - tele_last >= 1000)
         {
-          static Uint32 last_audio_time = 0;
-          Uint32 now = SDL_GetTicks();
-          if (last_audio_time == 0)
-            last_audio_time = now;
-          while (now - last_audio_time >= 20)
-          { // 20ms = 50Hz
-            int samples_to_write = SAMPLE_RATE / 50;
-
-            SDL_LockAudio();
-            if (audio_write_pos + samples_to_write > AUDIO_BUFFER_SIZE)
-            {
-              int first_part = AUDIO_BUFFER_SIZE - audio_write_pos;
-              sn76496Update(0, &audio_buffer[audio_write_pos], first_part);
-              sn76496Update(0, &audio_buffer[0], samples_to_write - first_part);
-            }
-            else
-            {
-              sn76496Update(0, &audio_buffer[audio_write_pos], samples_to_write);
-            }
-            audio_write_pos = (audio_write_pos + samples_to_write) % AUDIO_BUFFER_SIZE;
-
-            SDL_UnlockAudio();
-            last_audio_time += 20;
+          int elapsed = (int)(tele_now - tele_start);
+          if (elapsed <= 16000)
+          {
+            int buffered = audio_write_pos - audio_read_pos;
+            if (buffered < 0)
+              buffered += AUDIO_BUFFER_SIZE;
+            fprintf(stderr, "[TELE t=%ds] vblank_irq/s=%d  audio_buf=%dms\n",
+                    elapsed / 1000, tele_vblank,
+                    buffered * 1000 / (audio_output_rate > 0 ? audio_output_rate : 44100));
           }
+          tele_vblank = 0;
+          tele_last = tele_now;
         }
       }
-
-      // --- VBlank FPS counter ---
-      if (Vdp->Line == 0)
-      {
-        RenderScreen();
-      }
-
-      exec6502(207);
-
-      Syncro(207);
+#endif
 
     } // Fine Pausa
 
@@ -358,27 +361,38 @@ void SetupScreen()
 //*******************************************
 // AudioCallback function
 //*******************************************
-// Runs in SDL's audio thread — never acquires the main thread's resources.
-// Reads behind audio_write_pos so it always plays the most recently
-// generated audio.  Ring buffer is 4 seconds deep, so it handles any
-// ALSA/PulseAudio hardware buffer size without wrapping.
+// Runs in SDL's audio thread. Following FunnyMu design, samples are
+// generated directly in the callback from current SN76496 state.
 //*******************************************
 void AudioCallback(void *udata, Uint8 *stream, int len)
 {
-  int samples = len / sizeof(int16_t);
+  int channels = (audio_output_channels > 0) ? audio_output_channels : 1;
+  int frames = len / (sizeof(int16_t) * channels);
   int16_t *out = reinterpret_cast<int16_t *>(stream);
 
-  for (int i = 0; i < samples; i++)
+  if (!audio_enabled || frames <= 0)
   {
-    if (audio_read_pos == audio_write_pos)
-    {
-      out[i] = 0; // Buffer underrun: play silence
-    }
-    else
-    {
-      out[i] = audio_buffer[audio_read_pos];
-      audio_read_pos = (audio_read_pos + 1) % AUDIO_BUFFER_SIZE;
-    }
+    memset(stream, 0, len);
+    return;
+  }
+
+  if (channels == 1)
+  {
+    sn76496Update(0, out, frames);
+    return;
+  }
+
+  int16_t mix[1024];
+  if (frames > 1024)
+    frames = 1024;
+
+  sn76496Update(0, mix, frames);
+
+  for (int i = 0; i < frames; i++)
+  {
+    int16_t sample = mix[i];
+    for (int ch = 0; ch < channels; ch++)
+      out[i * channels + ch] = sample;
   }
 }
 
@@ -388,9 +402,9 @@ void InitAudio(void)
 {
   SDL_AudioSpec *desired = new SDL_AudioSpec;
 
-  desired->freq = SAMPLE_RATE;
+  desired->freq = 22050;
   desired->format = AUDIO_S16SYS;
-  desired->samples = 1024;
+  desired->samples = 256;
   desired->channels = 1;
   desired->callback = AudioCallback;
   desired->userdata = NULL;
@@ -403,13 +417,16 @@ void InitAudio(void)
     exit(2);
   }
 
+  audio_output_rate = obtained->freq;
+  audio_output_channels = obtained->channels;
+
   // If desired format is not supported, this might be an issue.
   // For now, let's keep it simple and just make sure it opens.
 
   Audio_spec = desired;
 
-  // Explicitly resume audio
-  SDL_PauseAudio(0);
+  // Keep audio paused until hardware is initialized.
+  SDL_PauseAudio(1);
 }
 
 //*******************************************
@@ -433,7 +450,7 @@ void InitHardware(void)
   // Reset76489(&SoundChip,0);
   // Sync76489(&SoundChip,SN76489_SYNC);
 
-  sn76496Init(0, (int)(2000000 * EMU_PITCH_MULTIPLIER), 150, SAMPLE_RATE);
+  sn76496Init(0, (int)(EMU_PSG_BASE_CLOCK * EMU_PITCH_MULTIPLIER), 150, audio_output_rate);
 
   //******************************************
   // Inizializzo l'emulazione del chip video
@@ -523,33 +540,24 @@ void PresentScreen(void)
 
 void Syncro(int time)
 {
-  static double total_ms = 0;
-  static Uint32 start_ticks = 0;
+  (void)time;
+  static Uint32 old_timer = 0;
+  const Uint32 frame_delay_ms = (Uint32)((20.0 / EMU_TEMPO_MULTIPLIER) + 0.5);
 
-  if (start_ticks == 0)
-    start_ticks = SDL_GetTicks();
+  // FunnyMu-style pacing: throttle once per completed frame.
+  if (Vdp->Line != 0)
+    return;
 
-  // Divide by EMU_TEMPO_MULTIPLIER so that a higher multiplier results in less delay (faster tempo)
-  total_ms += ((time * CPUTIME) / EMU_TEMPO_MULTIPLIER);
+  if (old_timer == 0)
+    old_timer = SDL_GetTicks();
 
-  Cycle++;
-  if (Cycle >= SYNCRO_TIME)
+  Uint32 now;
+  do
   {
-    Uint32 now = SDL_GetTicks();
-    Uint32 expected_now = start_ticks + (Uint32)total_ms;
+    now = SDL_GetTicks();
+  } while ((now - old_timer) < frame_delay_ms);
 
-    if (now < expected_now)
-    {
-      Uint32 tc0 = SDL_GetTicks();
-      while (SDL_GetTicks() - tc0 < expected_now - now)
-      {
-        SDL_Delay(1);  // Sleep in small increments to be more responsive
-        CheckEvents(); // Check for events during delay to prevent unresponsiveness
-      }
-    }
-
-    Cycle = 0;
-  }
+  old_timer = SDL_GetTicks();
 }
 
 //*******************************************
@@ -575,13 +583,23 @@ int CheckCmdLine(int argc, char **argv)
       printf("Arguments:\n");
       printf("  romname            Path to the ROM cartridge file\n");
       printf("  biosname           Path to the BIOS file (default: bios/Biosdsw.rom)\n\n");
-      printf("Keys:\n");
+      printf("  --help             This help\n\n");
+      printf("  --version          Application version\n\n");
+      printf("\n\n");
+
+      printf("Emulator keys:\n");
       printf("  TAB                Open/close in-emulator menu\n");
       printf("  F2                 Pause / unpause\n");
       printf("  F3                 Toggle fullscreen / windowed\n");
       printf("  F5                 Reset (NMI)\n");
       printf("  ESC                Quit\n\n");
       return 0;
+    }
+
+    if (strcmp(argv[1], "--version") == 0 || strcmp(argv[1], "-v") == 0)
+    {
+        printf("%s\n", PROGRAMRELEASE );
+        return 0;
     }
 
     strcpy(RomName, argv[1]);

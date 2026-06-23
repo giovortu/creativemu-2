@@ -193,6 +193,8 @@
   //*************************************
 
   bool audio_enabled = true;
+  int audio_output_rate = SAMPLE_RATE;
+  int audio_output_channels = 1;
 
   #define AUDIO_BUFFER_SIZE (SAMPLE_RATE * 4)   // 4-second ring buffer — fits any ALSA/PulseAudio latency
   int16_t audio_buffer[AUDIO_BUFFER_SIZE];

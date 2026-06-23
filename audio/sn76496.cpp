@@ -80,7 +80,7 @@ void sn76496Write(int chip, int data)
     case 4:                    /* tone 2 : frequency */
       // Correct formula: Period is UpdateStep * RegisterValue
       R->Period[c] = (int)(R->UpdateStep * R->Register[r]);
-      if (R->Period[c] == 0) R->Period[c] = (int)(R->UpdateStep * 1024);
+      if (R->Period[c] == 0) R->Period[c] = (int)R->UpdateStep;
       if (r == 4) {
         /* update noise shift frequency */
         if ((R->Register[6] & 0x03) == 0x03)
@@ -118,7 +118,7 @@ void sn76496Write(int chip, int data)
     case 4:                    /* tone 2 : frequency */
       R->Register[r] = (R->Register[r] & 0x0f) | ((data & 0x3f) << 4);
       R->Period[c] = (int)(R->UpdateStep * R->Register[r]);
-      if (R->Period[c] == 0) R->Period[c] = (int)(R->UpdateStep * 1024);
+      if (R->Period[c] == 0) R->Period[c] = (int)R->UpdateStep;
       if (r == 4) {
         /* update noise shift frequency */
         if ((R->Register[6] & 0x03) == 0x03)
