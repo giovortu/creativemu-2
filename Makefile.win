@@ -1,47 +1,48 @@
 # Project: CvEmu2
-# Makefile semplificato per Windows / MinGW
+# Modernized Makefile for Windows / MinGW (SDL2)
 
-# --- CONFIGURAZIONE PATH DEV-C++ E SDL ---
-DEVCPP_DIR = C:/Programmi/Dev-Cpp
-SDL_DIR    = $(DEVCPP_DIR)/include/SDL
+# --- CONFIGURATION ---
+# Adjust SDL_PATH to point to your SDL2 installation folder (containing 'include' and 'lib')
+# Example: SDL_PATH = C:/SDL2
+SDL_PATH = C:/SDL2
 
-CPP     = g++.exe -D__DEBUG__
-CC      = gcc.exe -D__DEBUG__
-WINDRES = windres.exe
-RM      = rm -f
+CPP      = g++
+WINDRES  = windres.exe
+RM       = rm -f
 
-BIN  = CvEmu2.exe
-RES  = CreatiVemu_private.res
+BIN      = CvEmu2.exe
+RES      = CreatiVemu_private.res
 
 # --- FLAG DI COMPILAZIONE ---
-INCS     = -I"$(DEVCPP_DIR)/include" -I"$(SDL_DIR)" -I.
-CXXFLAGS = $(INCS) -w -fexpensive-optimizations -O3 -g3
-CFLAGS   = $(INCS) -Dmain=SDL_main -w -fexpensive-optimizations -O3 -g3
+INCS     = -I"$(SDL_PATH)/include" -I.
+CXXFLAGS = $(INCS) -w -O2 -g
+CFLAGS   = $(INCS) -Dmain=SDL_main -w -O2 -g
 
-LIBS     = -L"$(DEVCPP_DIR)/lib" -mwindows -lmingw32 -lSDLmain -lSDL -liberty -g3
+# Linkage for SDL2 on Windows/MinGW
+LIBS     = -L"$(SDL_PATH)/lib" -lmingw32 -lSDL2main -lSDL2
 
 # --- ELENCO SORGENTI ---
-OBJ  = video/tms9918.o mem/cvmemory.o cpu/cpu6502.o pia/6821pia.o \
-       video/drv9918.o main.o audio/sn76496.o font/font.o \
+OBJ  = video/tms9918.o mem/cvmemory.o cpu/cpu6502.o pia/6821pia.o \\
+       video/drv9918.o main.o audio/sn76496.o font/font.o \\
        savestate/savestate.o menu/menu.o keyboard/keyboard.o $(RES)
 
 .PHONY: all clean
 
 all: $(BIN)
 
-# Regola generica per i file .cpp (es. main.cpp, font.cpp)
+# Rule for C++ files
 %.o: %.cpp
 	$(CPP) -c $< -o $@ $(CXXFLAGS)
 
-# Regola generica per i file .c (la maggior parte dei tuoi sorgenti)
+# Rule for C files (if any)
 %.o: %.c
-	$(CPP) -c $< -o $@ $(CXXFLAGS)
+	$(CPP) -c $< -o $@ $(CFLAGS)
 
-# Regola per compilare il file delle risorse Windows (icona, info eseguibile)
+# Compile Windows resource file (icon)
 $(RES): CreatiVemu_private.rc
-	$(WINDRES) -i $< --input-format=rc -o $@ -O coff
+	$(WINDRES) $< -o $@
 
-# Link finale dell'eseguibile
+# Final Link
 $(BIN): $(OBJ)
 	$(CPP) $(OBJ) -o $(BIN) $(LIBS)
 
