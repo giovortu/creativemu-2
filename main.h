@@ -96,6 +96,7 @@
 
 
   SDLFont *font;
+  SDLFont *fontDark;
     
   SDL_Event event;
   SDL_Rect CvRect,rect,rect2,MenuRect;

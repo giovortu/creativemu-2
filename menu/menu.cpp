@@ -28,6 +28,11 @@
 #include <stdbool.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <libgen.h>
+#include <unistd.h>
+#include <dirent.h>
 #ifdef WINDOWS
 #include <direct.h>
 #define MKDIR(path) _mkdir(path)
@@ -85,6 +90,8 @@ void InitMenu(void)
   SDL_SetPaletteColors(Menu->format->palette, SDL_CvPal, 0, 16);
   SDL_SetSurfaceBlendMode(Menu, SDL_BLENDMODE_BLEND);
   font = initFont(1, 1, 1, 20);
+  fontDark = initFont(0, 0, 0, 20);
+
 }
 
 //******************************************************
@@ -115,7 +122,7 @@ void DrawMenu(int Selected)
 
   // Scrivo gli elementi del menu
   for (int i = 0; i < MENU_ITEMS; i++)
-    drawString(Menu, font, (int)(0.5 * (MENU_WIDTH - 8 * strlen(MenuItems[i].String))), 30 + i * 10, MenuItems[i].String);
+    drawString(Menu, i==Selected ? fontDark : font, (int)(0.5 * (MENU_WIDTH - 8 * strlen(MenuItems[i].String))), 30 + i * 10, MenuItems[i].String);
 
   // Setto la trasparenza del menu...
   SDL_SetSurfaceAlphaMod(Menu, 220);
@@ -285,32 +292,142 @@ void Snapshot(void)
 
 void LoadRom(void)
 {
-  char typedPath[255] = "";
-  int typedLen = 0;
+  char roms[256][256];
+  int romCount = 0;
+  int selected = 0;
+  int scrollOffset = 0;
   bool inputDone = false;
   bool inputCancel = false;
 
-  SDL_StartTextInput();
+  // Get executable path to resolve root directory
+  char exePath[1024];
+  char rootDir[1024];
+  #ifdef WINDOWS
+    GetModuleFileName(NULL, exePath, sizeof(exePath));
+  #else
+    ssize_t len = readlink("/proc/self/exe", exePath, sizeof(exePath) - 1);
+    if (len != -1) exePath[len] = '\0';
+    else strcpy(rootDir, ".");
+  #endif
 
-  while (!inputDone && !inputCancel && !done)
-  {
-    // Draw the greyed-out screen background
+  if (strlen(exePath) > 0) {
+    char *lastSlash = strrchr(exePath, '/');
+    #ifdef WINDOWS
+      if (!lastSlash) lastSlash = strrchr(exePath, '\\');
+    #endif
+
+    if (lastSlash) {
+      strncpy(rootDir, exePath, lastSlash - exePath);
+      rootDir[lastSlash - exePath] = '\0';
+    } else {
+      strcpy(rootDir, ".");
+    }
+  } else {
+    strcpy(rootDir, ".");
+  }
+
+  char romsFolderPath[1024];
+  sprintf(romsFolderPath, "%s/roms", rootDir);
+  printf("Searching for ROMs in: %s\n", romsFolderPath);
+
+  // Scan roms folder
+  #ifdef WINDOWS
+    struct _finddata_t c_file;
+    char searchPath[1024];
+    sprintf(searchPath, "%s/*.bin", romsFolderPath);
+    if (_findfirst(searchPath, &c_file) == 0) {
+      do {
+        strncpy(roms[romCount], c_file.filenam, 255);
+        roms[romCount][255] = '\0';
+        romCount++;
+        if (romCount >= 256) break;
+      } while (_findnext(&c_file) == 0);
+    }
+  #else
+    DIR *dir = opendir(romsFolderPath);
+    if (dir == NULL) {
+      printf("Error: Could not open directory %s: %s\n", romsFolderPath, strerror(errno));
+    } else {
+      struct dirent *ent;
+      printf("Scanning directory...\n");
+      while ((ent = readdir(dir)) != NULL && romCount < 256) {
+        printf("  Checking file: %s\n", ent->d_name);
+        if (strstr(ent->d_name, ".rom") || strstr(ent->d_name, ".bin")) {
+          strncpy(roms[romCount], ent->d_name, 255);
+          roms[romCount][255] = '\0';
+          romCount++;
+        }
+      }
+      closedir(dir);
+    }
+  #endif
+
+  if (romCount > 0) {
+    printf("Found %d ROMs:\n", romCount);
+    for (int i = 0; i < romCount; i++) {
+      printf("  [%d] %s\n", i, roms[i]);
+    }
+  }
+
+  if (romCount == 0) {
     SDL_UpperBlit(CvScreen, NULL, WindowSurface, &CvRect);
-
-    // Draw a centered dialog box
     SDL_Rect outerRect = { 10, 90, 300, 70 };
     SDL_Rect innerRect = { 12, 92, 296, 66 };
+    SDL_FillRect(WindowSurface, &outerRect, SDL_MapRGB(WindowSurface->format, 255, 0, 0));
+    SDL_FillRect(WindowSurface, &innerRect, SDL_MapRGB(WindowSurface->format, 63, 0, 0));
+    
+    char errorMsg[256];
+    sprintf(errorMsg, "NO ROMS FOUND in %s", romsFolderPath);
+    drawString(WindowSurface, font, 20, 98, "%s", errorMsg);
+    drawString(WindowSurface, font, 20, 118, "Check folder...");
+    PresentScreen();
+    bool keyPressed = false;
+    while (!keyPressed && !done) {
+      SDL_Event ev;
+      while (SDL_PollEvent(&ev)) {
+        if (ev.type == SDL_QUIT) done = true;
+        else if (ev.type == SDL_KEYDOWN) keyPressed = true;
+      }
+      SDL_Delay(16);
+    }
+    return;
+  }
+
+  SDL_StartTextInput();
+  int maxVisible = 10;
+  while (!inputDone && !inputCancel && !done)
+  {
+    SDL_UpperBlit(CvScreen, NULL, WindowSurface, &CvRect);
+    
+    SDL_Rect outerRect = { 10, 40, 300, 160 };
+    SDL_Rect innerRect = { 12, 42, 296, 156 };
     SDL_FillRect(WindowSurface, &outerRect, SDL_MapRGB(WindowSurface->format, 255, 255, 255));
     SDL_FillRect(WindowSurface, &innerRect, SDL_MapRGB(WindowSurface->format, 0, 31, 63));
 
-    // Draw labels
-    drawString(WindowSurface, font, 20, 98, "ENTER ROM PATH:");
-    drawString(WindowSurface, font, 20, 118, typedPath);
+    drawString(WindowSurface, font, 20, 50, "SELECT ROM:");
 
-    // Draw blinking cursor
-    int cursorX = 20 + typedLen * 8;
-    if ((SDL_GetTicks() / 500) % 2 == 0) {
-      drawString(WindowSurface, font, cursorX, 118, "_");
+    for (int i = 0; i < maxVisible && (i + scrollOffset) < romCount; i++) {
+      int idx = i + scrollOffset;
+      char *filename = roms[idx];
+      
+      char *nameOnly = filename;
+      char *lastSlashLocal = strrchr(filename, '/');
+      if (lastSlashLocal) nameOnly = lastSlashLocal + 1;
+      
+      // Convert to uppercase for display
+      char upperName[256];
+      int j = 0;
+      while (nameOnly[j] && j < 255) {
+        upperName[j] = toupper((unsigned char)nameOnly[j]);
+        j++;
+      }
+      upperName[j] = '\0';
+      
+      if (idx == selected) {
+        SDL_Rect selRect = { 15, 70 + i * 12, 280, 11 };
+        SDL_FillRect(WindowSurface, &selRect, SDL_MapRGB(WindowSurface->format, 0x7f, 0x7f, 0x3f));
+      }
+      drawString(WindowSurface, font, 20, 70 + i * 12, "%s", upperName);
     }
 
     PresentScreen();
@@ -323,78 +440,63 @@ void LoadRom(void)
         done = true;
         inputCancel = true;
       }
-      else if (ev.type == SDL_TEXTINPUT)
-      {
-        int len = strlen(ev.text.text);
-        if (typedLen + len < 254)
-        {
-          strcat(typedPath, ev.text.text);
-          typedLen += len;
-        }
-      }
       else if (ev.type == SDL_KEYDOWN)
       {
-        if (ev.key.keysym.sym == SDLK_RETURN)
+        switch(ev.key.keysym.sym)
         {
-          inputDone = true;
-        }
-        else if (ev.key.keysym.sym == SDLK_ESCAPE)
-        {
-          inputCancel = true;
-        }
-        else if (ev.key.keysym.sym == SDLK_BACKSPACE)
-        {
-          if (typedLen > 0)
-          {
-            typedPath[--typedLen] = '\0';
-          }
+          case SDLK_RETURN:
+            inputDone = true;
+            break;
+          case SDLK_ESCAPE:
+            inputCancel = true;
+            break;
+          case SDLK_UP:
+            if (selected > 0) {
+              selected--;
+              if (selected < scrollOffset) scrollOffset--;
+            }
+            break;
+          case SDLK_DOWN:
+            if (selected < romCount - 1) {
+              selected++;
+              if (selected >= scrollOffset + maxVisible) scrollOffset++;
+            }
+            break;
         }
       }
     }
     SDL_Delay(16);
   }
-
   SDL_StopTextInput();
 
-  if (inputDone && typedLen > 0)
+  if (inputDone && !done)
   {
-    char oldRomName[255];
-    strcpy(oldRomName, RomName);
-    strcpy(RomName, typedPath);
+    char fullPath[1024];
+    sprintf(fullPath, "%s/roms/%s", rootDir, roms[selected]);
 
+    strcpy(RomName, fullPath);
     if (createCvMemory(cvMemory, BiosName, RomName))
     {
       reset6502();
     }
     else
     {
-      strcpy(RomName, oldRomName);
-
-      // Draw error dialog
       SDL_UpperBlit(CvScreen, NULL, WindowSurface, &CvRect);
       SDL_Rect outerRect = { 10, 90, 300, 70 };
       SDL_Rect innerRect = { 12, 92, 296, 66 };
       SDL_FillRect(WindowSurface, &outerRect, SDL_MapRGB(WindowSurface->format, 255, 0, 0));
       SDL_FillRect(WindowSurface, &innerRect, SDL_MapRGB(WindowSurface->format, 63, 0, 0));
-
       drawString(WindowSurface, font, 20, 98, "LOAD ERROR!");
       drawString(WindowSurface, font, 20, 118, "Press any key to return...");
       PresentScreen();
-
       bool keyPressed = false;
       while (!keyPressed && !done)
       {
         SDL_Event ev;
         while (SDL_PollEvent(&ev))
         {
-          if (ev.type == SDL_QUIT)
-          {
-            done = true;
-          }
-          else if (ev.type == SDL_KEYDOWN)
-          {
-            keyPressed = true;
-          }
+          if (ev.type == SDL_QUIT) done = true;
+          else if (ev.type == SDL_KEYDOWN) keyPressed = true;
         }
         SDL_Delay(16);
       }

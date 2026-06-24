@@ -20,6 +20,7 @@ extern SDL_Surface *CvScreen;
 extern tms9918 *Vdp;
 extern bool sMenu,Paused,done;
 extern struct SDLFont *font;
+extern struct SDLFont *fontDark;
 extern SDL_Color SDL_CvPal[16],SDL_CvPalBw[16];
 extern Uint32 color;
 extern void RenderScreen(void);
