@@ -1,6 +1,6 @@
 //****************************************************************************************
 //
-// CvEmu2 versione 0.5 alpha 1
+// CvEmu2 versione 0.3.0-beta
 //
 // Ideato progettato e relizzato da Giovanni Ortu
 //
@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 #include "cvmemory.h"
 
 int loadRom(char *Filename, BYTE *Rom)
@@ -53,20 +54,20 @@ int createCvMemory(BYTE *Memory, char *BiosFile, char *RomFile)
    // Setup del Bios
    //****************
 
-   BYTE *Bios = new BYTE[0x0800];
-   BYTE *Rom = new BYTE[0x4800];
+   std::vector<BYTE> Bios(0x0800);
+   std::vector<BYTE> Rom(0x4800);
    long RomSize;
 
    //***************************
    // Carico il bios e la Rom
    //***************************
 
-   if ((RomSize = loadRom(BiosFile, Bios)) < 0)
+   if ((RomSize = loadRom(BiosFile, Bios.data())) < 0)
    {
       printf("Errore nel caricamento del BIOS %s\n", BiosFile);
       return 0;
    }
-   if ((RomSize = loadRom(RomFile, Rom)) < 0)
+   if ((RomSize = loadRom(RomFile, Rom.data())) < 0)
    {
       printf("Errore nel caricamento della ROM %s\n", RomFile);
       return 0;

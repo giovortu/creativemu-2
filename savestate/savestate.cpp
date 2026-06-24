@@ -1,6 +1,6 @@
 //****************************************************************************************
 //
-// CvEmu2 versione 0.5 alpha 1
+// CvEmu2 versione 0.3.0-beta
 //
 // Ideato progettato e relizzato da Giovanni Ortu
 //
@@ -24,7 +24,8 @@
 //********************************************
 
 #include "savestate.h"
-// #include <zlib.h>z
+#include <zlib.h>
+#include "../pia/6821pia.h"
 
 //**********************************************
 // Save emulation state
@@ -32,24 +33,30 @@
 
 void SaveState(void)
 {
-    FILE *fp;
+    gzFile gz = gzopen("state.sav", "wb");
 
-    if ((fp = fopen("state.raw", "wb")))
+    if (gz)
     {
+        gzwrite(gz, (void *)cvMemory,  sizeof(BYTE) * 0x10000);
+        gzwrite(gz, (void *)Vdp,       sizeof(tms9918));
+        gzwrite(gz, (void *)VdpRam,    sizeof(BYTE) * CV_VIDEO_WIDTH * CV_VIDEO_HEIGHT);
+        /* Fix: use sizeof(struct pia6821) * MAX_PIA, not sizeof(pointer) */
+        gzwrite(gz, (void *)pia,       sizeof(struct pia6821) * MAX_PIA);
 
-        fwrite((void *)cvMemory, sizeof(BYTE), 0xffff, fp);
-        fwrite((void *)Vdp, sizeof(tms9918), 1, fp);
-        fwrite((void *)VdpRam, sizeof(BYTE), CV_VIDEO_WIDTH * CV_VIDEO_HEIGHT, fp);
-        fwrite((void *)pia, sizeof(struct pia6821 *), 1, fp);
+        gzwrite(gz, (void *)&a_reg,    sizeof(BYTE));
+        gzwrite(gz, (void *)&x_reg,    sizeof(BYTE));
+        gzwrite(gz, (void *)&y_reg,    sizeof(BYTE));
+        gzwrite(gz, (void *)&flag_reg, sizeof(BYTE));
+        gzwrite(gz, (void *)&s_reg,    sizeof(BYTE));
+        /* Fix: pc_reg is a WORD (2 bytes), not a BYTE */
+        gzwrite(gz, (void *)&pc_reg,   sizeof(WORD));
 
-        fwrite((void *)&a_reg, sizeof(BYTE), 1, fp);
-        fwrite((void *)&x_reg, sizeof(BYTE), 1, fp);
-        fwrite((void *)&y_reg, sizeof(BYTE), 1, fp);
-        fwrite((void *)&flag_reg, sizeof(BYTE), 1, fp);
-        fwrite((void *)&s_reg, sizeof(BYTE), 1, fp);
-        fwrite((void *)&pc_reg, sizeof(BYTE), 1, fp);
-
-        fclose(fp);
+        gzclose(gz);
+        printf("State saved to state.sav\n");
+    }
+    else
+    {
+        printf("Error: could not open state.sav for writing\n");
     }
 }
 
@@ -59,23 +66,29 @@ void SaveState(void)
 
 void LoadState(void)
 {
-    FILE *fp;
+    gzFile gz = gzopen("state.sav", "rb");
 
-    if ((fp = fopen("state.raw", "rb")))
+    if (gz)
     {
+        gzread(gz, (void *)cvMemory,  sizeof(BYTE) * 0x10000);
+        gzread(gz, (void *)Vdp,       sizeof(tms9918));
+        gzread(gz, (void *)VdpRam,    sizeof(BYTE) * CV_VIDEO_WIDTH * CV_VIDEO_HEIGHT);
+        /* Fix: use sizeof(struct pia6821) * MAX_PIA, not sizeof(pointer) */
+        gzread(gz, (void *)pia,       sizeof(struct pia6821) * MAX_PIA);
 
-        fread((BYTE *)cvMemory, sizeof(BYTE), 0xffff, fp);
-        fread((tms9918 *)Vdp, sizeof(tms9918), 1, fp);
-        fread((BYTE *)VdpRam, sizeof(BYTE), CV_VIDEO_WIDTH * CV_VIDEO_HEIGHT, fp);
-        fread((struct pia6821 *)pia, sizeof(struct pia6821 *), 1, fp);
+        gzread(gz, (void *)&a_reg,    sizeof(BYTE));
+        gzread(gz, (void *)&x_reg,    sizeof(BYTE));
+        gzread(gz, (void *)&y_reg,    sizeof(BYTE));
+        gzread(gz, (void *)&flag_reg, sizeof(BYTE));
+        gzread(gz, (void *)&s_reg,    sizeof(BYTE));
+        /* Fix: pc_reg is a WORD (2 bytes), not a BYTE */
+        gzread(gz, (void *)&pc_reg,   sizeof(WORD));
 
-        fread((BYTE *)&a_reg, sizeof(BYTE), 1, fp);
-        fread((BYTE *)&x_reg, sizeof(BYTE), 1, fp);
-        fread((BYTE *)&y_reg, sizeof(BYTE), 1, fp);
-        fread((BYTE *)&flag_reg, sizeof(BYTE), 1, fp);
-        fread((BYTE *)&s_reg, sizeof(BYTE), 1, fp);
-        fread((BYTE *)&pc_reg, sizeof(BYTE), 1, fp);
-
-        fclose(fp);
+        gzclose(gz);
+        printf("State loaded from state.sav\n");
+    }
+    else
+    {
+        printf("Error: could not open state.sav for reading\n");
     }
 }

@@ -1,6 +1,6 @@
 //****************************************************************************************
 //
-// CvEmu2 versione 0.5 alpha 1
+// CvEmu2 versione 0.3.0-beta
 //
 // Ideato progettato e relizzato da Giovanni Ortu
 //
@@ -26,7 +26,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <zlib.h>
 
 #include <SDL2/SDL.h>
 
@@ -262,17 +261,8 @@ void FreeEmu(void)
     freeFont(font);
 
   if (Vdp)
-  {
     Trash9918(Vdp);
-    delete Vdp;
-  }
-
-  if (VdpRam)
-    delete VdpRam;
-  if (cvMemory)
-    delete cvMemory;
-
-  delete Audio_spec;
+  // Vdp, VdpRam, cvMemory are now static/stack-allocated — no delete needed.
 
   SDL_Quit();
 
@@ -400,30 +390,29 @@ void AudioCallback(void *udata, Uint8 *stream, int len)
 
 void InitAudio(void)
 {
-  SDL_AudioSpec *desired = new SDL_AudioSpec;
+  // Use stack-allocated specs — no heap allocation needed.
+  SDL_AudioSpec desired{};
+  SDL_AudioSpec obtained{};
 
-  desired->freq = 22050;
-  desired->format = AUDIO_S16SYS;
-  desired->samples = 256;
-  desired->channels = 1;
-  desired->callback = AudioCallback;
-  desired->userdata = NULL;
+  desired.freq     = 22050;
+  desired.format   = AUDIO_S16SYS;
+  desired.samples  = 256;
+  desired.channels = 1;
+  desired.callback = AudioCallback;
+  desired.userdata = NULL;
 
-  SDL_AudioSpec *obtained = new SDL_AudioSpec; // Add obtained spec
-
-  if (SDL_OpenAudio(desired, obtained) < 0)
+  if (SDL_OpenAudio(&desired, &obtained) < 0)
   {
-    // ... (error handling)
+    printf("Couldn't open audio: %s\n", SDL_GetError());
     exit(2);
   }
 
-  audio_output_rate = obtained->freq;
-  audio_output_channels = obtained->channels;
+  audio_output_rate     = obtained.freq;
+  audio_output_channels = obtained.channels;
 
-  // If desired format is not supported, this might be an issue.
-  // For now, let's keep it simple and just make sure it opens.
-
-  Audio_spec = desired;
+  // Store a pointer to the desired spec for legacy references (non-owning).
+  static SDL_AudioSpec s_audio_spec = desired;
+  Audio_spec = &s_audio_spec;
 
   // Keep audio paused until hardware is initialized.
   SDL_PauseAudio(1);
@@ -551,11 +540,11 @@ void Syncro(int time)
   if (old_timer == 0)
     old_timer = SDL_GetTicks();
 
-  Uint32 now;
-  do
-  {
-    now = SDL_GetTicks();
-  } while ((now - old_timer) < frame_delay_ms);
+  // Fix: use SDL_Delay() to yield the CPU instead of a busy-wait spin.
+  Uint32 now = SDL_GetTicks();
+  Uint32 elapsed = now - old_timer;
+  if (elapsed < frame_delay_ms)
+    SDL_Delay(frame_delay_ms - elapsed);
 
   old_timer = SDL_GetTicks();
 }

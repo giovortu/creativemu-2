@@ -1,6 +1,6 @@
 //****************************************************************************************
 //                                                                                        
-// CvEmu2 versione 0.5 alpha 1
+// CvEmu2 versione 0.3.0-beta
 //                                                                                      
 // Ideato progettato e relizzato da Giovanni Ortu                                        
 //                                                                                       
@@ -45,12 +45,14 @@
 #include "cpu6502.h"
 #include "../video/tms9918.h" 
 #include "../pia/6821pia.h"
+#include <array>
 
 int WhichKeyOrJoy;
 
 bool KeyHit=false;
 
-BYTE *cvMemory=new BYTE[0x10000]();
+static std::array<BYTE, 0x10000> cvMemory_buf{};
+BYTE *cvMemory = cvMemory_buf.data();
 
 /* Registri */
 /* flags = NVRBDIZC */

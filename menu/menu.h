@@ -34,6 +34,7 @@ void GrayVideo( void );
 void DrawMenu( int  );
 void InitMenu( void );
 void Snapshot( void );
+void LoadRom( void );
 
 // Present the scaled virtual surface to the real window.
 extern void PresentScreen(void);

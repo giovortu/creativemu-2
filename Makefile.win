@@ -19,7 +19,7 @@ CXXFLAGS = $(INCS) -w -O2 -g
 CFLAGS   = $(INCS) -Dmain=SDL_main -w -O2 -g
 
 # Linkage for SDL2 on Windows/MinGW
-LIBS     = -L"$(SDL_PATH)/lib" -lmingw32 -lSDL2main -lSDL2
+LIBS     = -L"$(SDL_PATH)/lib" -lmingw32 -lSDL2main -lSDL2 -lz
 
 # --- ELENCO SORGENTI ---
 OBJ  = video/tms9918.o mem/cvmemory.o cpu/cpu6502.o pia/6821pia.o \\

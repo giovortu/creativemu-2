@@ -14,6 +14,38 @@
 
 #define MAX_PIA 1
 
+/******************* internal PIA data structure *******************/
+/* Moved here from 6821pia.cpp so that all translation units        */
+/* (especially savestate.cpp) can use sizeof(struct pia6821).      */
+
+struct pia6821
+{
+	const struct pia6821_interface *intf;
+	unsigned char addr;
+
+	unsigned char in_a;
+	unsigned char in_ca1;
+	unsigned char in_ca2;
+	unsigned char out_a;
+	unsigned char out_ca2;
+	unsigned char ddr_a;
+	unsigned char ctl_a;
+	unsigned char irq_a1;
+	unsigned char irq_a2;
+	unsigned char irq_a_state;
+
+	unsigned char in_b;
+	unsigned char in_cb1;
+	unsigned char in_cb2;
+	unsigned char out_b;
+	unsigned char out_cb2;
+	unsigned char ddr_b;
+	unsigned char ctl_b;
+	unsigned char irq_b1;
+	unsigned char irq_b2;
+	unsigned char irq_b_state;
+};
+
 
 /* this is the standard ordering of the registers */
 /* alternate ordering swaps registers 1 and 2 */

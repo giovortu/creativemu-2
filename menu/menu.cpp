@@ -1,6 +1,6 @@
 //****************************************************************************************
 //
-// CvEmu2 versione 0.5 alpha 1
+// CvEmu2 versione 0.3.0-beta
 //
 // Ideato progettato e relizzato da Giovanni Ortu
 //
@@ -38,8 +38,12 @@
 #endif
 #include "menu.h"
 #include "../savestate/savestate.h"
+#include "../mem/cvmemory.h"
+#include "../cpu/cpu6502.h"
 
 extern char RomName[255];
+extern char BiosName[255];
+extern BYTE *cvMemory;
 
 //******************************************************
 // Struttura contenente il Menu
@@ -58,7 +62,7 @@ struct
 
 } MenuItems[MENU_ITEMS] =
     {
-        "LOAD ROM", NULL,
+        "LOAD ROM", LoadRom,
         "-----------", NULL,
         "SAVE STATE", SaveState,
         "LOAD STATE", LoadState,
@@ -99,7 +103,7 @@ void DrawMenu(int Selected)
   SDL_FillRect(Menu, NULL, color);
 
   // Scrive l'intestazione
-  drawString(Menu, font, 25, 10, "CVEMU 0.5 ALPHA");
+  drawString(Menu, font, 25, 10, "CVEMU 0.3.0-BETA");
 
   // Coordinate e dimensione del rettangolo che seleziona la scelta
   rect2.w = MENU_WIDTH - 10;
@@ -277,4 +281,123 @@ void Snapshot(void)
 
   SDL_SaveBMP(CvScreen, name);
   SDL_SetPaletteColors(CvScreen->format->palette, SDL_CvPalBw, 0, 16);
+}
+
+void LoadRom(void)
+{
+  char typedPath[255] = "";
+  int typedLen = 0;
+  bool inputDone = false;
+  bool inputCancel = false;
+
+  SDL_StartTextInput();
+
+  while (!inputDone && !inputCancel && !done)
+  {
+    // Draw the greyed-out screen background
+    SDL_UpperBlit(CvScreen, NULL, WindowSurface, &CvRect);
+
+    // Draw a centered dialog box
+    SDL_Rect outerRect = { 10, 90, 300, 70 };
+    SDL_Rect innerRect = { 12, 92, 296, 66 };
+    SDL_FillRect(WindowSurface, &outerRect, SDL_MapRGB(WindowSurface->format, 255, 255, 255));
+    SDL_FillRect(WindowSurface, &innerRect, SDL_MapRGB(WindowSurface->format, 0, 31, 63));
+
+    // Draw labels
+    drawString(WindowSurface, font, 20, 98, "ENTER ROM PATH:");
+    drawString(WindowSurface, font, 20, 118, typedPath);
+
+    // Draw blinking cursor
+    int cursorX = 20 + typedLen * 8;
+    if ((SDL_GetTicks() / 500) % 2 == 0) {
+      drawString(WindowSurface, font, cursorX, 118, "_");
+    }
+
+    PresentScreen();
+
+    SDL_Event ev;
+    while (SDL_PollEvent(&ev))
+    {
+      if (ev.type == SDL_QUIT)
+      {
+        done = true;
+        inputCancel = true;
+      }
+      else if (ev.type == SDL_TEXTINPUT)
+      {
+        int len = strlen(ev.text.text);
+        if (typedLen + len < 254)
+        {
+          strcat(typedPath, ev.text.text);
+          typedLen += len;
+        }
+      }
+      else if (ev.type == SDL_KEYDOWN)
+      {
+        if (ev.key.keysym.sym == SDLK_RETURN)
+        {
+          inputDone = true;
+        }
+        else if (ev.key.keysym.sym == SDLK_ESCAPE)
+        {
+          inputCancel = true;
+        }
+        else if (ev.key.keysym.sym == SDLK_BACKSPACE)
+        {
+          if (typedLen > 0)
+          {
+            typedPath[--typedLen] = '\0';
+          }
+        }
+      }
+    }
+    SDL_Delay(16);
+  }
+
+  SDL_StopTextInput();
+
+  if (inputDone && typedLen > 0)
+  {
+    char oldRomName[255];
+    strcpy(oldRomName, RomName);
+    strcpy(RomName, typedPath);
+
+    if (createCvMemory(cvMemory, BiosName, RomName))
+    {
+      reset6502();
+    }
+    else
+    {
+      strcpy(RomName, oldRomName);
+
+      // Draw error dialog
+      SDL_UpperBlit(CvScreen, NULL, WindowSurface, &CvRect);
+      SDL_Rect outerRect = { 10, 90, 300, 70 };
+      SDL_Rect innerRect = { 12, 92, 296, 66 };
+      SDL_FillRect(WindowSurface, &outerRect, SDL_MapRGB(WindowSurface->format, 255, 0, 0));
+      SDL_FillRect(WindowSurface, &innerRect, SDL_MapRGB(WindowSurface->format, 63, 0, 0));
+
+      drawString(WindowSurface, font, 20, 98, "LOAD ERROR!");
+      drawString(WindowSurface, font, 20, 118, "Press any key to return...");
+      PresentScreen();
+
+      bool keyPressed = false;
+      while (!keyPressed && !done)
+      {
+        SDL_Event ev;
+        while (SDL_PollEvent(&ev))
+        {
+          if (ev.type == SDL_QUIT)
+          {
+            done = true;
+          }
+          else if (ev.type == SDL_KEYDOWN)
+          {
+            keyPressed = true;
+          }
+        }
+        SDL_Delay(16);
+      }
+    }
+  }
 }

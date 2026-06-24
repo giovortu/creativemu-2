@@ -1,6 +1,6 @@
 //****************************************************************************************
 //                                                                                        
-// CvEmu2 versione 0.5 alpha 1
+// CvEmu2 versione 0.3.0-beta
 //                                                                                      
 // Ideato progettato e relizzato da Giovanni Ortu                                        
 //                                                                                       
@@ -123,8 +123,10 @@
  
   //******************************
   // Processore video
+  // Static object — no heap allocation (Fix 6a)
   //******************************
-  tms9918 *Vdp=new tms9918;
+  static tms9918 Vdp_obj{};
+  tms9918 *Vdp = &Vdp_obj;
 
   //******************************
   // Interfaccia del PIA  
@@ -155,8 +157,10 @@
 
   //********************************
   // Puntatore alla memoria video  *
+  // Static array — no heap allocation (Fix 6a)
   //********************************
-  BYTE *VdpRam=new BYTE[CV_VIDEO_WIDTH * CV_VIDEO_HEIGHT];
+  static BYTE VdpRam_buf[CV_VIDEO_WIDTH * CV_VIDEO_HEIGHT]{};
+  BYTE *VdpRam = VdpRam_buf;
   
   //************************************  
   // Palette dei colori CreatiVision   *

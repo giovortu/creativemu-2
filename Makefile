@@ -8,7 +8,7 @@ DEFINES+=PROGRAMRELEASE
 
 CPP  = g++
 BIN  = bin/cvemu2
-LIBS = -lSDL2
+LIBS = -lSDL2 -lz
 
 # CFLAGS include "-I." così i file cpp possono includere gli header senza percorsi complessi
 CFLAGS = -w -g -O2 -I.

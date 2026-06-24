@@ -1,6 +1,6 @@
 //****************************************************************************************
 //                                                                                        
-// CvEmu2 versione 0.5 alpha 1
+// CvEmu2 versione 0.3.0-beta
 //                                                                                      
 // Ideato progettato e relizzato da Giovanni Ortu                                        
 //                                                                                       

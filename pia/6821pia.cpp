@@ -23,35 +23,7 @@ int KeyOrJoy=0;
 extern int LeftKeys,LeftJoy,RightKeys,RightJoy;
 extern bool audio_enabled;
 
-/******************* internal PIA data structure *******************/
-
-struct pia6821
-{
-	const struct pia6821_interface *intf;
-	unsigned char addr;
-
-	unsigned char in_a;
-	unsigned char in_ca1;
-	unsigned char in_ca2;
-	unsigned char out_a;
-	unsigned char out_ca2;
-	unsigned char ddr_a;
-	unsigned char ctl_a;
-	unsigned char irq_a1;
-	unsigned char irq_a2;
-	unsigned char irq_a_state;
-
-	unsigned char in_b;
-	unsigned char in_cb1;
-	unsigned char in_cb2;
-	unsigned char out_b;
-	unsigned char out_cb2;
-	unsigned char ddr_b;
-	unsigned char ctl_b;
-	unsigned char irq_b1;
-	unsigned char irq_b2;
-	unsigned char irq_b_state;
-};
+/* struct pia6821 is now defined in 6821pia.h */
 
 
 /******************* convenince macros and defines *******************/
