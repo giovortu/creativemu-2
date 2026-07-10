@@ -1,0 +1,9 @@
+{
+  "name": "creativemu-2",
+  "version-string": "0.5.3",
+  "description": "CreatiVision / Dick Smith Wizard emulator",
+  "dependencies": [
+    "sdl2",
+    "zlib"
+  ]
+}

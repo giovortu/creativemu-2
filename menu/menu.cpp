@@ -30,13 +30,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#ifdef WINDOWS
+#include <windows.h>
+#include <direct.h>
+#include <io.h>
+#define MKDIR(path) _mkdir(path)
+#else
 #include <libgen.h>
 #include <unistd.h>
 #include <dirent.h>
-#ifdef WINDOWS
-#include <direct.h>
-#define MKDIR(path) _mkdir(path)
-#else
 #include <sys/stat.h>
 #include <sys/types.h>
 #define MKDIR(path) mkdir(path, 0755)
@@ -110,7 +112,7 @@ void DrawMenu(int Selected)
   SDL_FillRect(Menu, NULL, color);
 
   // Scrive l'intestazione
-  drawString(Menu, font, 25, 10, "CVEMU 0.3.0-BETA");
+  drawString(Menu, font, (int)(0.5 * (MENU_WIDTH - 8 * 10)), 10, "CREATIVEMU");
 
   // Coordinate e dimensione del rettangolo che seleziona la scelta
   rect2.w = MENU_WIDTH - 10;
@@ -334,14 +336,16 @@ void LoadRom(void)
   #ifdef WINDOWS
     struct _finddata_t c_file;
     char searchPath[1024];
-    sprintf(searchPath, "%s/*.bin", romsFolderPath);
-    if (_findfirst(searchPath, &c_file) == 0) {
+    sprintf(searchPath, "%s/*.rom", romsFolderPath);
+    intptr_t hFile = _findfirst(searchPath, &c_file);
+    if (hFile != -1) {
       do {
-        strncpy(roms[romCount], c_file.filenam, 255);
+        strncpy(roms[romCount], c_file.name, 255);
         roms[romCount][255] = '\0';
         romCount++;
         if (romCount >= 256) break;
-      } while (_findnext(&c_file) == 0);
+      } while (_findnext(hFile, &c_file) == 0);
+      _findclose(hFile);
     }
   #else
     DIR *dir = opendir(romsFolderPath);

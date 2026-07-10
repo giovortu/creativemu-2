@@ -8,7 +8,7 @@
 #include "../video/tms9918.h"
 
 
-#define MENU_WIDTH 150
+#define MENU_WIDTH 180
 #define MENU_HEIGHT 140
 
 

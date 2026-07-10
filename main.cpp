@@ -98,11 +98,16 @@ int main(int argc, char *argv[])
 
   InitMenu();
 
+  // No ROM was given on the command line: RomName is still empty, so we
+  // skip loading it here and instead show the ROM selection menu once the
+  // hardware is ready (below).
+  bool romGivenOnCmdLine = (RomName[0] != '\0');
+
   //*********************************
   // Inizializzo la memoria della Cv
   //*********************************
 
-  if (!createCvMemory(cvMemory, BiosName, RomName))
+  if (romGivenOnCmdLine && !createCvMemory(cvMemory, BiosName, RomName))
   {
     FreeEmu();
     exit(0);
@@ -114,10 +119,24 @@ int main(int argc, char *argv[])
 
   InitHardware();
 
-  //******************************
-  // Resetto la Cpu
-  //******************************
-  reset6502();
+  if (romGivenOnCmdLine)
+  {
+    //******************************
+    // Resetto la Cpu
+    //******************************
+    reset6502();
+  }
+  else
+  {
+    //******************************************************
+    // Nessuna rom sulla linea di comando: mostro subito il
+    // menu di selezione rom per permettere l'hot-load.
+    //******************************************************
+    RenderScreen(); // Ensure CvScreen exists before drawing menu overlays.
+    LoadRom();
+    if (!done && RomName[0] == '\0')
+      done = true; // User closed the ROM browser without picking one.
+  }
 
   //**************************************************
   // Avvio l'audio
@@ -392,7 +411,6 @@ void InitAudio(void)
 {
   // Use stack-allocated specs — no heap allocation needed.
   SDL_AudioSpec desired{};
-  SDL_AudioSpec obtained{};
 
   desired.freq     = 22050;
   desired.format   = AUDIO_S16SYS;
@@ -401,14 +419,20 @@ void InitAudio(void)
   desired.callback = AudioCallback;
   desired.userdata = NULL;
 
-  if (SDL_OpenAudio(&desired, &obtained) < 0)
+  // Passing NULL for `obtained` tells SDL to open the device in whatever
+  // native format it needs (e.g. WASAPI's float32 stereo on Windows) and
+  // transparently convert to/from our requested format under the hood.
+  // If we pass a non-NULL `obtained` instead, SDL skips that conversion and
+  // the callback must produce audio in the *obtained* format — which on
+  // Windows/WASAPI differs from S16 mono and silently breaks playback.
+  if (SDL_OpenAudio(&desired, NULL) < 0)
   {
     printf("Couldn't open audio: %s\n", SDL_GetError());
     exit(2);
   }
 
-  audio_output_rate     = obtained.freq;
-  audio_output_channels = obtained.channels;
+  audio_output_rate     = desired.freq;
+  audio_output_channels = desired.channels;
 
   // Store a pointer to the desired spec for legacy references (non-owning).
   static SDL_AudioSpec s_audio_spec = desired;
@@ -570,7 +594,8 @@ int CheckCmdLine(int argc, char **argv)
       printf("Usage:\n");
       printf("  %s romname [biosname]\n\n", argv[0]);
       printf("Arguments:\n");
-      printf("  romname            Path to the ROM cartridge file\n");
+      printf("  romname            Path to the ROM cartridge file (optional: omit to pick\n");
+      printf("                     one from the internal ROM load menu at startup)\n");
       printf("  biosname           Path to the BIOS file (default: bios/Biosdsw.rom)\n\n");
       printf("  --help             This help\n\n");
       printf("  --version          Application version\n\n");
@@ -597,10 +622,15 @@ int CheckCmdLine(int argc, char **argv)
     return 1;
   }
 
-  printf("\nNo argument passed on command line!\n\n");
-  printf("Usage:\n%s romname [ biosname ]\n\n", (argv[0]));
+  //****************************************
+  // Nessun argomento: RomName resta vuoto e
+  // l'utente sceglierà una rom dal menu
+  // interno all'avvio (hot-load).
+  //****************************************
 
-  return 0;
+  printf("\nNo ROM specified on the command line: opening the internal ROM load menu...\n\n");
+
+  return 1;
 }
 
 //*******************************************

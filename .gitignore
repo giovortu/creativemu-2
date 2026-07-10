@@ -1,3 +1,6 @@
 *.o
+*.zip
 bin/cvemu2
+bin/CreatiVemu2.exe
 snapshots/*
+build/
